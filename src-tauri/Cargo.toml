@@ -1,6 +1,6 @@
 [package]
 name = "phone"
-version = "0.1.0"
+version = "1.0.0"
 description = "Phone desktop application"
 authors = ["you"]
 edition = "2024"
