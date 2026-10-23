@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:windows": "node tools/build-windows.mjs",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "preview": "vite preview",
     "tauri": "tauri"

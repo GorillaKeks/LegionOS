@@ -1,0 +1,127 @@
+name: Windows release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and verify Windows x64 installers
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up Rust MSVC toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: x86_64-pc-windows-msvc
+
+      - name: Verify tag and project versions
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node tools/check-release-version.mjs "$env:RELEASE_TAG"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Check Rust project
+        run: cargo check --manifest-path src-tauri/Cargo.toml --target x86_64-pc-windows-msvc
+
+      - name: Build Windows installers
+        run: npm run build:windows
+
+      - name: Verify installer aliases
+        shell: pwsh
+        run: |
+          $installers = @(
+            "src-tauri/target/release/bundle/nsis/LegionOS_x64-setup.exe",
+            "src-tauri/target/release/bundle/msi/LegionOS_x64_en-US.msi"
+          )
+          foreach ($installer in $installers) {
+            if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
+              throw "Expected installer is missing: $installer"
+            }
+            if ((Get-Item -LiteralPath $installer).Length -le 0) {
+              throw "Expected installer is empty: $installer"
+            }
+          }
+
+      - name: Upload verified installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-installers
+          path: |
+            src-tauri/target/release/bundle/nsis/LegionOS_x64-setup.exe
+            src-tauri/target/release/bundle/msi/LegionOS_x64_en-US.msi
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified installers
+        uses: actions/download-artifact@v8
+        with:
+          name: windows-installers
+          path: installers
+
+      - name: Verify downloaded assets
+        shell: bash
+        run: |
+          test -s installers/LegionOS_x64-setup.exe
+          test -s installers/LegionOS_x64_en-US.msi
+
+      - name: Create draft release with both installers
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          args=("$RELEASE_TAG" \
+            installers/LegionOS_x64-setup.exe \
+            installers/LegionOS_x64_en-US.msi \
+            --draft --generate-notes --verify-tag --title "$RELEASE_TAG")
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            args+=(--prerelease)
+          fi
+          gh release create "${args[@]}"
+
+      - name: Verify release assets and publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          expected="$(printf '%s\n' LegionOS_x64-setup.exe LegionOS_x64_en-US.msi | sort)"
+          actual="$(gh release view "$RELEASE_TAG" --json assets --jq '[.assets[].name] | sort | .[]')"
+          if [[ "$actual" != "$expected" ]]; then
+            printf 'Release assets did not match expected files.\nExpected:\n%s\nActual:\n%s\n' "$expected" "$actual" >&2
+            exit 1
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false --verify-tag
