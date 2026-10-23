@@ -93,9 +93,7 @@ jobs:
 
       - name: Verify downloaded assets
         shell: bash
-        run: |
-          test -s installers/LegionOS_x64-setup.exe
-          test -s installers/LegionOS_x64_en-US.msi
+        run: node tools/verify-release-assets.mjs installers
 
       - name: Create draft release with both installers
         shell: bash
@@ -104,8 +102,8 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           args=("$RELEASE_TAG" \
-            installers/LegionOS_x64-setup.exe \
-            installers/LegionOS_x64_en-US.msi \
+            installers/nsis/LegionOS_x64-setup.exe \
+            installers/msi/LegionOS_x64_en-US.msi \
             --draft --generate-notes --verify-tag --title "$RELEASE_TAG")
           if [[ "$RELEASE_TAG" == *-* ]]; then
             args+=(--prerelease)

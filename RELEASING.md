@@ -35,3 +35,7 @@ Der Workflow prüft die Tag-Version gegen alle Projekt-Manifeste und Lockfiles, 
 - Es wird kein persönliches Token benötigt. Der Workflow wird nicht bei normalen Pushes auf `main` ausgelöst.
 
 Der Workflow erstellt nur die Release-Installer. Eine Tauri-Updater-Funktion ist damit nicht eingerichtet.
+
+## Artifact layout in Actions
+
+The two upload paths share `src-tauri/target/release/bundle` as their least common ancestor. `upload-artifact` therefore keeps the `nsis/` and `msi/` directories in the artifact. After downloading to `installers/`, the expected paths are `installers/nsis/LegionOS_x64-setup.exe` and `installers/msi/LegionOS_x64_en-US.msi`; the release job verifies and uploads those paths by their filenames.
