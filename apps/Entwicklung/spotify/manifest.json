@@ -1,0 +1,9 @@
+{
+  "id": "spotify",
+  "name": "Spotify",
+  "version": "1.0.0",
+  "description": "Starte Spotify Desktop aus LΣGIΦN ΦS",
+  "icon": "spark",
+  "type": "internal",
+  "entry": "spotify"
+}

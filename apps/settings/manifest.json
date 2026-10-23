@@ -1,0 +1,9 @@
+{
+  "id": "settings",
+  "name": "Einstellungen",
+  "version": "1.0.0",
+  "description": "Persönliche Optionen und Geräteformat.",
+  "icon": "settings",
+  "type": "internal",
+  "entry": "settings"
+}

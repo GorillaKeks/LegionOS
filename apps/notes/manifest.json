@@ -1,0 +1,9 @@
+{
+  "id": "notes",
+  "name": "Notizen",
+  "version": "1.0.0",
+  "description": "Gedanken festhalten.",
+  "icon": "note",
+  "type": "internal",
+  "entry": "notes"
+}

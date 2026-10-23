@@ -1,0 +1,9 @@
+{
+  "id": "snake",
+  "name": "Snake",
+  "version": "1.0.0",
+  "description": "Klassisches Snake im futuristischen Legion-Design.",
+  "icon": "snake",
+  "type": "internal",
+  "entry": "snake"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "focus",
+  "name": "Fokus",
+  "version": "1.0.0",
+  "description": "Eine kleine lokale Beispiel-App mit einer kurzen Fokus-Checkliste.",
+  "icon": "spark",
+  "type": "internal",
+  "entry": "focus"
+}

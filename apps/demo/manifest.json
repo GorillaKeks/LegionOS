@@ -1,0 +1,9 @@
+{
+  "id": "demo",
+  "name": "Demo",
+  "version": "1.0.0",
+  "description": "Ein kleiner interaktiver Spielplatz.",
+  "icon": "spark",
+  "type": "internal",
+  "entry": "demo"
+}
