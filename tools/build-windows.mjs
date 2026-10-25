@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { writeLatestManifest } from "./updater-manifest.mjs";
+import { inspectSignatureFormat, normalizeSignature, writeLatestManifest } from "./updater-manifest.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const bundleRoot = path.join(projectRoot, "src-tauri", "target", "release", "bundle");
@@ -93,21 +93,19 @@ export function findFreshSignature(installerPath, snapshot) {
     throw new Error(`Updater signature file is empty: ${signaturePath} (0 bytes).`);
   }
 
-  let signature = bytes.toString("utf8");
-  const hasUtf8Bom = signature.charCodeAt(0) === 0xfeff;
-  if (hasUtf8Bom) signature = signature.slice(1);
-  signature = signature.replace(/\r\n/g, "\n").trimEnd();
-
-  const lines = signature.split("\n");
-  const hasExpectedPrefix = lines[0]?.startsWith("untrusted comment: ") ?? false;
-  if (!hasExpectedPrefix || lines.length < 2 || lines[1]?.trim().length === 0) {
-    // Minisign signatures are public verification data. Log only structural metadata here,
-    // never the signature payload or any signing-key material.
+  const signature = bytes.toString("utf8");
+  try {
+    normalizeSignature(signature);
+  } catch {
+    // Tauri writes the Minisign envelope as a single Base64 line. Report only structure,
+    // never signature contents or signing-key material.
+    const details = inspectSignatureFormat(signature);
     throw new Error(
-      `Updater signature has an invalid format: ${signaturePath} `
-      + `(bytes=${bytes.length}, utf8Bom=${hasUtf8Bom}, lines=${lines.length}, `
-      + `expectedPrefix=${hasExpectedPrefix}, payloadLinePresent=${Boolean(lines[1]?.trim())}). `
-      + "Expected a non-empty Minisign envelope; signature contents were not logged.",
+      `Updater signature has an invalid Tauri format: ${signaturePath} `
+      + `(bytes=${bytes.length}, utf8Bom=${details.utf8Bom}, outerLines=${details.outerLines}, `
+      + `base64Canonical=${details.base64Canonical}, decodedBytes=${details.decodedBytes}, `
+      + `decodedLines=${details.decodedLines}, minisignPrefix=${details.minisignPrefix}). `
+      + "Signature contents were not logged.",
     );
   }
   return signaturePath;

@@ -5,6 +5,11 @@ import path from "node:path";
 import { test } from "node:test";
 import { findFreshInstaller, findFreshSignature, installerDefinitions, snapshotInstallerFiles } from "../tools/build-windows.mjs";
 
+const tauriSignature = Buffer.from(
+  "untrusted comment: signature from tauri secret key\nYWJjZGVm\ntrusted comment: timestamp: 0\nZ2hpamts\n",
+  "utf8",
+).toString("base64");
+
 function withTempDirectory(run: (directory: string) => void) {
   const directory = mkdtempSync(path.join(os.tmpdir(), "legionos-installer-test-"));
   try {
@@ -74,18 +79,18 @@ test("requires a new non-empty Minisign signature next to each fresh installer",
     const signaturePath = `${installer}.sig`;
     writeFileSync(installer, "new-installer");
     const beforeBuild = snapshotInstallerFiles(root);
-    writeFileSync(signaturePath, "untrusted comment: signature from minisign secret key\nYWJjZGVm\n");
+    writeFileSync(signaturePath, tauriSignature);
     assert.equal(findFreshSignature(installer, beforeBuild), signaturePath);
   });
 });
 
-test("accepts a UTF-8 BOM and Windows line endings without logging signature data", () => {
+test("accepts Tauri's Base64 signature format and UTF-8 BOM without logging contents", () => {
   withTempDirectory((root) => {
     const installer = path.join(root, "Phone_1.0.1_x64-setup.exe");
     const signaturePath = `${installer}.sig`;
     writeFileSync(installer, "installer");
     const beforeBuild = snapshotInstallerFiles(root);
-    writeFileSync(signaturePath, "\uFEFFuntrusted comment: signature from tauri secret key\r\nYWJjZGVm\r\n");
+    writeFileSync(signaturePath, `\uFEFF${tauriSignature}\r\n`);
 
     assert.equal(findFreshSignature(installer, beforeBuild), signaturePath);
   });
@@ -114,7 +119,7 @@ test("reports format metadata without including malformed signature contents", (
 
     assert.throws(() => findFreshSignature(installer, beforeBuild), (error: unknown) => {
       assert.ok(error instanceof Error);
-      assert.match(error.message, /bytes=\d+, utf8Bom=false, lines=1, expectedPrefix=false/);
+      assert.match(error.message, /bytes=\d+, utf8Bom=false, outerLines=1, base64Canonical=false/);
       assert.doesNotMatch(error.message, new RegExp(signaturePayload));
       return true;
     });
@@ -133,6 +138,6 @@ test("rejects a missing, unchanged, or malformed updater signature", () => {
     assert.throws(() => findFreshSignature(installer, afterSignature), /signature is missing/);
     const beforeMalformed = new Map(beforeBuild);
     writeFileSync(signaturePath, "not a minisign signature\n");
-    assert.throws(() => findFreshSignature(installer, beforeMalformed), /invalid format/);
+    assert.throws(() => findFreshSignature(installer, beforeMalformed), /invalid Tauri format/);
   });
 });

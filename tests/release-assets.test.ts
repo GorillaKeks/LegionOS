@@ -6,8 +6,18 @@ import { test } from "node:test";
 import { verifyReleaseAssets } from "../tools/verify-release-assets.mjs";
 import { createLatestManifest } from "../tools/updater-manifest.mjs";
 
-const nsisSignature = "untrusted comment: signature from minisign secret key\nYWJjZGVm\n";
-const msiSignature = "untrusted comment: signature from minisign secret key\nZ2hpamts\n";
+const nsisSignature = Buffer.from(
+  "untrusted comment: signature from tauri secret key\nYWJjZGVm\ntrusted comment: timestamp: 0\nZ2hpamts\n",
+  "utf8",
+).toString("base64");
+const msiSignature = Buffer.from(
+  "untrusted comment: signature from tauri secret key\nZ2hpamts\ntrusted comment: timestamp: 0\nYWJjZGVm\n",
+  "utf8",
+).toString("base64");
+const otherNsisSignature = Buffer.from(
+  "untrusted comment: signature from tauri secret key\nYWJjZGVm\ntrusted comment: timestamp: 1\nZ2hpamts\n",
+  "utf8",
+).toString("base64");
 
 function writeValidRelease(root: string) {
   mkdirSync(path.join(root, "nsis"));
@@ -53,7 +63,7 @@ test("rejects mismatched update signatures, tags, and manifest URLs", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "legionos-release-assets-"));
   try {
     writeValidRelease(root);
-    writeFileSync(path.join(root, "latest.json"), JSON.stringify(createLatestManifest("1.0.1", `${nsisSignature}tampered`)));
+    writeFileSync(path.join(root, "latest.json"), JSON.stringify(createLatestManifest("1.0.1", otherNsisSignature)));
     assert.throws(() => verifyReleaseAssets(root, "1.0.1"), /signature does not match/);
     writeFileSync(path.join(root, "latest.json"), JSON.stringify({ ...createLatestManifest("1.0.1", nsisSignature), version: "1.0.2" }));
     assert.throws(() => verifyReleaseAssets(root, "1.0.1"), /does not match/);
