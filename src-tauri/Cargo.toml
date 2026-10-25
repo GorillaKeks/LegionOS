@@ -1,6 +1,6 @@
 [package]
 name = "legionos"
-version = "1.0.4"
+version = "1.0.5"
 description = "LegionOS desktop application"
 authors = ["you"]
 edition = "2024"

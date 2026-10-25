@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { localeForLanguage, t, type Language } from "../../src/i18n";
 import "./RoadWatchApp.css";
 
 type RoadWatchMember = {
@@ -26,12 +27,13 @@ type Props = {
   active: boolean;
   truckersmpId: string;
   vtcId: string;
+  language: Language;
   onOpenSettings: () => void;
 };
 
 type StatusFilter = "all" | "online" | "offline";
 
-export default function RoadWatchApp({ active, truckersmpId, vtcId, onOpenSettings }: Props) {
+export default function RoadWatchApp({ active, truckersmpId, vtcId, language, onOpenSettings }: Props) {
   const [data, setData] = useState<RoadWatchData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export default function RoadWatchApp({ active, truckersmpId, vtcId, onOpenSettin
 
   const refresh = useCallback(async () => {
     if (!isTauri()) {
-      setError("RoadWatch-Daten sind nur in der LegionOS-Desktop-App verfügbar.");
+      setError(t(language, "roadwatch.desktopOnly"));
       return;
     }
     if (!vtcId || !truckersmpId) return;
@@ -63,7 +65,7 @@ export default function RoadWatchApp({ active, truckersmpId, vtcId, onOpenSettin
       requestRunning.current = false;
       if (generation.current === request) setLoading(false);
     }
-  }, [truckersmpId, vtcId]);
+  }, [language, truckersmpId, vtcId]);
 
   useEffect(() => {
     if (!active || !vtcId || !truckersmpId) return;
@@ -88,51 +90,51 @@ export default function RoadWatchApp({ active, truckersmpId, vtcId, onOpenSettin
       if (left.distanceKm !== null && right.distanceKm === null) return -1;
       if (left.distanceKm === null && right.distanceKm !== null) return 1;
       if (left.online !== right.online) return left.online ? -1 : 1;
-      return left.username.localeCompare(right.username, "de", { sensitivity: "base" });
+      return left.username.localeCompare(right.username, localeForLanguage(language), { sensitivity: "base" });
     });
-  }, [data, search, status]);
+  }, [data, language, search, status]);
 
   const lastUpdatedLabel = lastUpdated
-    ? `Aktualisiert ${new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(lastUpdated)}`
-    : "Noch nicht aktualisiert";
+    ? t(language, "roadwatch.updated", { time: new Intl.DateTimeFormat(localeForLanguage(language), { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(lastUpdated) })
+    : t(language, "roadwatch.notUpdated");
 
   if (!vtcId || !truckersmpId) {
     return <section className="roadwatch-app roadwatch-empty-setup">
       <span className="roadwatch-kicker">TRUCKERSMP · VTC LIVE</span>
       <div className="roadwatch-empty-icon" aria-hidden="true">RW</div>
-      <h2>RoadWatch einrichten</h2>
-      <p>Hinterlege deine persönliche TruckersMP-ID und die VTC-ID in den LegionOS-Einstellungen. Danach lädt RoadWatch Mitglieder und Live-Status.</p>
-      <button type="button" className="roadwatch-primary-button" onClick={onOpenSettings}>Einstellungen öffnen</button>
+      <h2>{t(language, "roadwatch.setupTitle")}</h2>
+      <p>{t(language, "roadwatch.setupDescription")}</p>
+      <button type="button" className="roadwatch-primary-button" onClick={onOpenSettings}>{t(language, "roadwatch.openSettings")}</button>
     </section>;
   }
 
   return <section className="roadwatch-app">
     <header className="roadwatch-heading">
-      <div><span className="roadwatch-kicker">TRUCKERSMP · VTC LIVE</span><h2>RoadWatch<span>.</span></h2><p>Fahrer mit Live-Entfernung automatisch von nah nach fern</p></div>
-      <button type="button" className="roadwatch-refresh" onClick={() => void refresh()} disabled={loading} aria-label="RoadWatch-Daten aktualisieren" title="Jetzt aktualisieren"><span className={loading ? "roadwatch-refresh-glyph spinning" : "roadwatch-refresh-glyph"}>↻</span><span>{loading ? "Lädt …" : "Aktualisieren"}</span></button>
+      <div><span className="roadwatch-kicker">TRUCKERSMP · VTC LIVE</span><h2>RoadWatch<span>.</span></h2><p>{t(language, "roadwatch.sort")}</p></div>
+      <button type="button" className="roadwatch-refresh" onClick={() => void refresh()} disabled={loading} aria-label={t(language, "roadwatch.refresh")} title={t(language, "roadwatch.refreshNow")}><span className={loading ? "roadwatch-refresh-glyph spinning" : "roadwatch-refresh-glyph"}>↻</span><span>{loading ? t(language, "roadwatch.loading") : t(language, "roadwatch.update")}</span></button>
     </header>
 
     {error && <div className="roadwatch-message roadwatch-error" role="alert">{error}</div>}
-    {data?.liveError && <div className="roadwatch-message" role="status">Die VTC-Mitglieder sind geladen, aber Live-Positionen sind momentan nicht erreichbar. {data.liveError}</div>}
+    {data?.liveError && <div className="roadwatch-message" role="status">{t(language, "roadwatch.liveError")} {data.liveError}</div>}
 
     <div className="roadwatch-stats">
-      <article><span>VTC-MITGLIEDER</span><strong>{data?.members.length ?? "—"}</strong></article>
-      <article><span>ONLINE</span><strong className="roadwatch-stat-online">{data?.liveDataAvailable ? data.onlineCount : "—"}</strong></article>
-      <article><span>LIVE-STATUS</span><strong className={data?.liveDataAvailable ? "roadwatch-stat-online" : "roadwatch-stat-muted"}>{data?.liveDataAvailable ? "LIVE" : loading ? "…" : "—"}</strong></article>
+      <article><span>{t(language, "roadwatch.members")}</span><strong>{data?.members.length ?? "—"}</strong></article>
+      <article><span>{t(language, "roadwatch.online")}</span><strong className="roadwatch-stat-online">{data?.liveDataAvailable ? data.onlineCount : "—"}</strong></article>
+      <article><span>{t(language, "roadwatch.liveStatus")}</span><strong className={data?.liveDataAvailable ? "roadwatch-stat-online" : "roadwatch-stat-muted"}>{data?.liveDataAvailable ? "LIVE" : loading ? "…" : "—"}</strong></article>
     </div>
 
-    <div className="roadwatch-list-toolbar"><label><span className="roadwatch-sr-only">Mitglieder suchen</span><input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="Mitglieder suchen …"/></label><select value={status} onChange={(event) => setStatus(event.currentTarget.value as StatusFilter)} aria-label="Nach Status filtern"><option value="all">Alle</option><option value="online">Online</option><option value="offline">Offline</option></select></div>
+    <div className="roadwatch-list-toolbar"><label><span className="roadwatch-sr-only">{t(language, "roadwatch.searchLabel")}</span><input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder={t(language, "roadwatch.searchPlaceholder")}/></label><select value={status} onChange={(event) => setStatus(event.currentTarget.value as StatusFilter)} aria-label={t(language, "roadwatch.filterStatus")}><option value="all">{t(language, "roadwatch.all")}</option><option value="online">{t(language, "roadwatch.online")}</option><option value="offline">{t(language, "roadwatch.offline")}</option></select></div>
 
     <div className="roadwatch-list" aria-live="polite">
-      {loading && !data && <p className="roadwatch-list-empty">TruckersMP- und Live-Daten werden geladen …</p>}
-      {!loading && !error && data && visibleMembers.length === 0 && <p className="roadwatch-list-empty">Keine passenden Mitglieder gefunden.</p>}
+      {loading && !data && <p className="roadwatch-list-empty">{t(language, "roadwatch.loadingMembers")}</p>}
+      {!loading && !error && data && visibleMembers.length === 0 && <p className="roadwatch-list-empty">{t(language, "roadwatch.noneFound")}</p>}
       {visibleMembers.map((member) => <article className={`roadwatch-member${member.isCurrentUser ? " roadwatch-member-own" : ""}`} key={`${member.id}-${member.truckersmpId}`}>
-        <span className={`roadwatch-status-dot${member.online ? " is-online" : ""}`} title={member.online ? "Online" : data?.liveDataAvailable ? "Offline" : "Status unbekannt"}/>
+        <span className={`roadwatch-status-dot${member.online ? " is-online" : ""}`} title={member.online ? t(language, "roadwatch.online") : data?.liveDataAvailable ? t(language, "roadwatch.offline") : t(language, "roadwatch.statusUnknown")}/>
         <span className="roadwatch-avatar" aria-hidden="true">
           {member.username.trim().charAt(0).toLocaleUpperCase() || "?"}
           {safeAvatarUrl(member.avatarUrl) && <img src={safeAvatarUrl(member.avatarUrl)!} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.style.display = "none"; }}/ >}
         </span>
-        <div className="roadwatch-member-main"><strong>{member.username}{member.isCurrentUser && <small>DU</small>}</strong><span>{member.role}</span>{member.online && <div className="roadwatch-member-meta"><span>{member.game === "ets2" ? "ETS2" : member.game === "ats" ? "ATS" : "TruckersMP"}</span>{member.server && <span>{member.server}</span>}</div>}</div>
+        <div className="roadwatch-member-main"><strong>{member.username}{member.isCurrentUser && <small>{t(language, "roadwatch.you")}</small>}</strong><span>{member.role}</span>{member.online && <div className="roadwatch-member-meta"><span>{member.game === "ets2" ? "ETS2" : member.game === "ats" ? "ATS" : "TruckersMP"}</span>{member.server && <span>{member.server}</span>}</div>}</div>
         <div className="roadwatch-distance">{member.distanceKm === null ? "—" : member.distanceKm < 10 ? `${member.distanceKm.toFixed(1)} km` : `${Math.round(member.distanceKm)} km`}</div>
       </article>)}
     </div>

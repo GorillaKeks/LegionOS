@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BOARD_SIZE, changeDirection, createGame, nextTickMs, stepGame, type Direction, type SnakeState } from "./game.ts";
+import { t, type Language } from "../../src/i18n";
 import "./snake.css";
 
 const RECORD_KEY = "legion-os.snake.high-score.v1";
@@ -13,7 +14,7 @@ function writeRecord(score: number): void {
   try { window.localStorage.setItem(RECORD_KEY, String(score)); } catch { /* Host storage can be disabled. */ }
 }
 
-export default function SnakeApp({ active }: { active: boolean }) {
+export default function SnakeApp({ active, language }: { active: boolean; language: Language }) {
   const [game, setGame] = useState<SnakeState>(() => createGame());
   const [best, setBest] = useState(readRecord);
   const gameRef = useRef(game);
@@ -52,23 +53,24 @@ export default function SnakeApp({ active }: { active: boolean }) {
   }, [best, game.score]);
 
   const handleDirection = (direction: Direction) => setGame((current) => current.status === "playing" ? changeDirection(current, direction) : current);
-  const statusText = { ready: "Bereit für deine Runde?", playing: "RUNDE LÄUFT", paused: "PAUSIERT", over: "GAME OVER", won: "FELD KOMPLETT — GEWONNEN!" }[game.status];
+  const statusKey = { ready: "snake.ready", playing: "snake.running", paused: "snake.paused", over: "snake.over", won: "snake.wonStatus" }[game.status];
+  const statusText = t(language, statusKey);
 
-  return <section className="snake-app" aria-label="Snake Arcade">
-    <header className="snake-heading"><div><span className="snake-kicker">LEGION ARCADE</span><h2>Snake<span>.</span></h2></div><div className="snake-scores"><div><small>PUNKTE</small><strong>{game.score.toString().padStart(2, "0")}</strong></div><div><small>REKORD</small><strong>{best.toString().padStart(2, "0")}</strong></div></div></header>
-    <div className={`snake-board snake-status-${game.status}`} role="group" aria-label={`Snake Spielfeld, ${game.score} Punkte, ${statusText}`} style={{ "--snake-size": BOARD_SIZE } as React.CSSProperties}>
+  return <section className="snake-app" aria-label={t(language, "snake.label")}>
+    <header className="snake-heading"><div><span className="snake-kicker">LEGION ARCADE</span><h2>Snake<span>.</span></h2></div><div className="snake-scores"><div><small>{t(language, "snake.points")}</small><strong>{game.score.toString().padStart(2, "0")}</strong></div><div><small>{t(language, "snake.best")}</small><strong>{best.toString().padStart(2, "0")}</strong></div></div></header>
+    <div className={`snake-board snake-status-${game.status}`} role="group" aria-label={`${t(language, "snake.label")}, ${game.score} ${t(language, "snake.points")}, ${statusText}`} style={{ "--snake-size": BOARD_SIZE } as React.CSSProperties}>
       {Array.from({ length: BOARD_SIZE * BOARD_SIZE }, (_, index) => {
         const x = index % BOARD_SIZE; const y = Math.floor(index / BOARD_SIZE);
         const bodyIndex = game.body.findIndex((part) => part.x === x && part.y === y);
         const isFood = game.food?.x === x && game.food?.y === y;
         return <span key={index} className={`snake-cell${bodyIndex === 0 ? " snake-head" : bodyIndex > 0 ? " snake-body" : ""}${isFood ? " snake-food" : ""}`} style={{ gridColumn: x + 1, gridRow: y + 1 }}/>;
       })}
-      {game.status !== "playing" && <div className="snake-overlay"><strong>{game.status === "ready" ? "Snake Arcade" : game.status === "paused" ? "Pausiert" : game.status === "won" ? "Gewonnen!" : "Game over"}</strong><span>{game.status === "ready" ? "Sammle Energie. Bleib in Bewegung." : game.status === "over" ? `Runde beendet — ${game.score} Punkte` : game.status === "won" ? "Das Spielfeld ist vollständig gefüllt." : "Weiter, wenn du bereit bist."}</span>{game.status !== "won" && <button type="button" onClick={game.status === "ready" ? start : game.status === "paused" ? togglePause : start}>{game.status === "ready" ? "Spiel starten" : game.status === "paused" ? "Fortsetzen" : "Neue Runde"}</button>}</div>}
+      {game.status !== "playing" && <div className="snake-overlay"><strong>{game.status === "ready" ? t(language, "snake.title") : game.status === "paused" ? t(language, "snake.paused") : game.status === "won" ? t(language, "snake.won") : t(language, "snake.gameOver")}</strong><span>{game.status === "ready" ? t(language, "snake.collect") : game.status === "over" ? t(language, "snake.roundEnded", { score: game.score }) : game.status === "won" ? t(language, "snake.boardFull") : t(language, "snake.continueReady")}</span>{game.status !== "won" && <button type="button" onClick={game.status === "ready" ? start : game.status === "paused" ? togglePause : start}>{game.status === "ready" ? t(language, "snake.start") : game.status === "paused" ? t(language, "snake.resume") : t(language, "snake.newRound")}</button>}</div>}
     </div>
-    <div className="snake-controls"><div className="snake-dpad" aria-label="Richtung steuern">
-      <span/><button type="button" aria-label="Nach oben" onClick={() => handleDirection("up")}>{directionGlyph.up}</button><span/>
-      <button type="button" aria-label="Nach links" onClick={() => handleDirection("left")}>{directionGlyph.left}</button><button type="button" aria-label="Nach unten" onClick={() => handleDirection("down")}>{directionGlyph.down}</button><button type="button" aria-label="Nach rechts" onClick={() => handleDirection("right")}>{directionGlyph.right}</button>
-    </div><div className="snake-actions"><button type="button" onClick={togglePause} disabled={game.status === "over" || game.status === "won" || game.status === "ready"}>{game.status === "paused" ? "Fortsetzen" : "Pause"}</button><button type="button" onClick={start}>Neustart</button></div></div>
-    <p className="snake-hint">Steuerung: Pfeiltasten oder WASD · Touch: Richtungstasten</p>
+    <div className="snake-controls"><div className="snake-dpad" aria-label={t(language, "common.direction")}>
+      <span/><button type="button" aria-label={t(language, "snake.up")} onClick={() => handleDirection("up")}>{directionGlyph.up}</button><span/>
+      <button type="button" aria-label={t(language, "snake.left")} onClick={() => handleDirection("left")}>{directionGlyph.left}</button><button type="button" aria-label={t(language, "snake.down")} onClick={() => handleDirection("down")}>{directionGlyph.down}</button><button type="button" aria-label={t(language, "snake.right")} onClick={() => handleDirection("right")}>{directionGlyph.right}</button>
+    </div><div className="snake-actions"><button type="button" onClick={togglePause} disabled={game.status === "over" || game.status === "won" || game.status === "ready"}>{game.status === "paused" ? t(language, "snake.resume") : t(language, "common.pause")}</button><button type="button" onClick={start}>{t(language, "common.restart")}</button></div></div>
+    <p className="snake-hint">{t(language, "snake.controls")}</p>
   </section>;
 }

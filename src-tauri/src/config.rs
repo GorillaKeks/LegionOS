@@ -10,7 +10,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const CONFIG_VERSION: u32 = 7;
+pub const CONFIG_VERSION: u32 = 8;
 pub const DEFAULT_OVERLAY_HOTKEY: &str = "Tab";
 const PRE_V3_DEFAULT_HOTKEYS: &[&str] = &[
     "ctrl+shift+space",
@@ -37,6 +37,18 @@ pub struct UserSettings {
     pub accent_on: bool,
     pub truckersmp_id: String,
     pub vtc_id: String,
+    pub language: UiLanguage,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub enum UiLanguage {
+    #[default]
+    #[serde(rename = "en")]
+    English,
+    #[serde(rename = "de")]
+    German,
+    #[serde(rename = "nl")]
+    Dutch,
 }
 
 impl Default for UserSettings {
@@ -46,6 +58,7 @@ impl Default for UserSettings {
             accent_on: true,
             truckersmp_id: String::new(),
             vtc_id: String::new(),
+            language: UiLanguage::English,
         }
     }
 }
@@ -412,6 +425,7 @@ mod tests {
                 accent_on: true,
                 truckersmp_id: String::new(),
                 vtc_id: String::new(),
+                language: UiLanguage::English,
             }
         );
         assert!(defaults.notes.is_empty());
@@ -430,6 +444,7 @@ mod tests {
                 accent_on: false,
                 truckersmp_id: "123456".into(),
                 vtc_id: "654321".into(),
+                language: UiLanguage::Dutch,
             })
             .unwrap();
         store.update_notes("persistente Notiz".into()).unwrap();
@@ -452,6 +467,7 @@ mod tests {
         assert_eq!(snapshot.mode, ViewMode::Tablet);
         assert!(snapshot.settings.quiet_mode);
         assert!(!snapshot.settings.accent_on);
+        assert_eq!(snapshot.settings.language, UiLanguage::Dutch);
         assert_eq!(snapshot.notes, "persistente Notiz");
         assert_eq!(snapshot.overlay_hotkey, "alt+f10");
         assert!(path.exists());
@@ -556,9 +572,10 @@ mod tests {
         )
         .unwrap();
         assert!(migrated);
-        assert_eq!(config.version, 7);
+        assert_eq!(config.version, CONFIG_VERSION);
         assert_eq!(config.mode, ViewMode::Tablet);
         assert_eq!(config.settings.quiet_mode, true);
+        assert_eq!(config.settings.language, UiLanguage::English);
         assert_eq!(config.notes, "Meine Notiz");
         assert_eq!(config.overlay_hotkey, "alt+f10");
         assert_eq!(config.installed_apps, default_installed_apps());

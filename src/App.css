@@ -11,6 +11,10 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid #5dddf2; outli
 .side-divider { height: 1px; background: #202a35; margin: 26px 2px 24px; }
 .section-kicker, .tip-label, .session-label, .counter-label { font-size: 9px; font-weight: 700; letter-spacing: 1.55px; color: #697b8d; }
 .device-mode-settings { margin: 0 0 14px; padding: 13px; border: 1px solid #25323e; border-radius: 11px; background: #111b25; }
+.language-settings { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 0 14px; padding: 13px; border: 1px solid #25323e; border-radius: 11px; background: #111b25; }
+.language-settings > div > span { display: block; color: #8292a1; font-size: 11px; }
+.language-settings select { min-width: 120px; padding: 9px 11px; border: 1px solid #334452; border-radius: 8px; color: #e5edf2; background: #0c141c; font: inherit; }
+.language-settings select:focus-visible { outline: 2px solid #58d9ed; outline-offset: 2px; }
 .device-mode-label { display: block; margin-bottom: 9px; color: #738494; font-size: 8px; font-weight: 700; letter-spacing: 1.1px; }
 .device-mode-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
 .device-mode-option { min-width: 0; min-height: 54px; display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid #293744; border-radius: 9px; color: #8998a6; background: #0b131b; text-align: left; cursor: pointer; transition: border-color .18s ease,background .18s ease,color .18s ease; }

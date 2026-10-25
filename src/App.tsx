@@ -12,17 +12,18 @@ import RoadWatchApp from "../apps/roadwatch/RoadWatchApp";
 import { initialWindowState, selectOpenAppIcons, windowReducer } from "./windowManager";
 import type { WindowPosition, WindowSize } from "./windowManager";
 import { getGreeting } from "./greeting";
+import { localeForLanguage, t, type Language } from "./i18n";
 import legionMark from "./assets/legion-tray-sizes/32x32.png";
 
 type ViewMode = "phone" | "tablet";
-type UserSettings = { quietMode: boolean; accentOn: boolean; truckersmpId: string; vtcId: string };
+type UserSettings = { quietMode: boolean; accentOn: boolean; truckersmpId: string; vtcId: string; language: Language };
 type ConfigSnapshot = { version: number; mode: ViewMode; settings: UserSettings; notes: string; canSave: boolean; notice: string | null; overlayHotkey: string; overlayHotkeyError: string | null };
 type PersistenceStatus = "loading" | "saved" | "saving" | "memory" | "error";
 type ResizeEdge = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 type WindowDrag =
   | { kind: "move"; windowId: string; pointerId: number; offsetX: number; offsetY: number }
   | { kind: "resize"; windowId: string; pointerId: number; edge: ResizeEdge; startX: number; startY: number; startWidth: number; startHeight: number; pointerX: number; pointerY: number };
-const defaultSettings: UserSettings = { quietMode: false, accentOn: true, truckersmpId: "", vtcId: "" };
+const defaultSettings: UserSettings = { quietMode: false, accentOn: true, truckersmpId: "", vtcId: "", language: "en" };
 
 type IconName = "settings" | "note" | "spark" | "snake" | "pong" | "roadwatch" | "chevron" | "close" | "minus" | "home" | "grid" | "sun" | "sunset" | "moon" | "check";
 
@@ -54,7 +55,7 @@ function App() {
   const [hotkeyError, setHotkeyError] = useState<string | null>(null);
   const [hotkeySaving, setHotkeySaving] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
-  const [updaterMessage, setUpdaterMessage] = useState("Noch nicht geprüft.");
+  const [updaterMessage, setUpdaterMessage] = useState(() => t(defaultSettings.language, "updater.notChecked"));
   const [updaterBusy, setUpdaterBusy] = useState(false);
   const [downloadedBytes, setDownloadedBytes] = useState(0);
   const [downloadTotal, setDownloadTotal] = useState<number | null>(null);
@@ -97,10 +98,14 @@ function App() {
   }, []);
 
   useEffect(() => {
+    document.documentElement.lang = settings.language;
+  }, [settings.language]);
+
+  useEffect(() => {
     if (!loaded) return;
     if (!isTauri()) {
       setAppStoreLoading(false);
-      setAppStoreError("Der lokale App-Store ist nur in der LegionOS-Desktop-App verfügbar.");
+      setAppStoreError(t(settings.language, "store.desktopOnly"));
       return;
     }
     let cancelled = false;
@@ -111,7 +116,7 @@ function App() {
       setAppStoreError(null);
     }).catch((error: unknown) => {
       if (cancelled) return;
-      setAppStoreError(`Lokaler App-Katalog konnte nicht geladen werden: ${String(error)}`);
+      setAppStoreError(`${t(settings.language, "store.configError")} ${String(error)}`);
     }).finally(() => { if (!cancelled) setAppStoreLoading(false); });
     return () => { cancelled = true; };
   }, [loaded]);
@@ -119,7 +124,7 @@ function App() {
   useEffect(() => {
     if (!isTauri()) {
       setPersistence("memory");
-      setPersistenceNotice("Browser-Vorschau: Einstellungen und Notizen werden nur bis zum Neuladen gehalten.");
+      setPersistenceNotice(t(settings.language, "persistence.browserPreview"));
       setLoaded(true);
       return;
     }
@@ -145,7 +150,7 @@ function App() {
     }).catch((error: unknown) => {
       if (cancelled) return;
       setPersistence("error");
-      setPersistenceNotice(`Konfiguration konnte nicht geladen werden: ${String(error)}`);
+      setPersistenceNotice(`${t(settings.language, "settings.configLoadError")} ${String(error)}`);
       setCanSave(false);
       canSaveRef.current = false;
       setLoaded(true);
@@ -158,20 +163,20 @@ function App() {
     updaterAutoCheckStarted.current = true;
     let cancelled = false;
     setUpdaterBusy(true);
-    setUpdaterMessage("Suche nach Updates …");
+    setUpdaterMessage(t(settings.language, "updater.startSearch"));
     void check({ timeout: 20_000 }).then((update) => {
       if (cancelled) {
         if (update) void update.close().catch(() => undefined);
         return;
       }
       if (!update) {
-        setUpdaterMessage("LegionOS ist auf dem neuesten Stand.");
+        setUpdaterMessage(t(settings.language, "updater.current"));
         return;
       }
       setAvailableUpdate(update);
-      setUpdaterMessage(`Version ${update.version} ist verfügbar.`);
+      setUpdaterMessage(t(settings.language, "updater.available", { version: update.version }));
     }).catch((error: unknown) => {
-      if (!cancelled) setUpdaterMessage(`Updateprüfung fehlgeschlagen: ${String(error)}`);
+      if (!cancelled) setUpdaterMessage(`${t(settings.language, "updater.failed")} ${String(error)}`);
     }).finally(() => {
       if (!cancelled) setUpdaterBusy(false);
     });
@@ -192,7 +197,7 @@ function App() {
     }).catch((error: unknown) => {
       if (revision === saveRevision.current) {
         setPersistence("error");
-        setPersistenceNotice(`Speichern fehlgeschlagen: ${String(error)}`);
+        setPersistenceNotice(`${t(settings.language, "settings.configSaveError")} ${String(error)}`);
       }
       return false;
     });
@@ -213,9 +218,10 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [note, loaded, canSave]);
 
-  const time = useMemo(() => new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(now), [now]);
-  const date = useMemo(() => new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long" }).format(now), [now]);
-  const greeting = useMemo(() => getGreeting(now), [now]);
+  const language = settings.language;
+  const time = useMemo(() => new Intl.DateTimeFormat(localeForLanguage(language), { hour: "2-digit", minute: "2-digit" }).format(now), [now, language]);
+  const date = useMemo(() => new Intl.DateTimeFormat(localeForLanguage(language), { weekday: "long", day: "numeric", month: "long" }).format(now), [now, language]);
+  const greeting = useMemo(() => getGreeting(now, language), [now, language]);
   const activeWindow = windowState.windows.find((window) => window.id === windowState.activeId);
   const activeLayout = activeWindow ? windowState.layouts[activeWindow.appId] : undefined;
   const minimized = windowState.windows.filter((window) => window.minimized);
@@ -226,7 +232,15 @@ function App() {
   const availableStoreApps = useMemo(() => selectAvailableApps(appStore), [appStore]);
   const installedStoreApps = useMemo(() => selectInstalledCatalogApps(appStore), [appStore]);
   const runtimeAppInfo = useMemo(() => Object.fromEntries(installedApps.map(({ id, info }) => [id, info])) as Partial<Record<AppId, typeof appInfo[AppId]>>, [installedApps]);
-  const getAppInfo = (appId: AppId) => runtimeAppInfo[appId] ?? appInfo[appId];
+  const getAppInfo = (appId: AppId) => {
+    const info = runtimeAppInfo[appId] ?? appInfo[appId];
+    return { ...info, name: t(language, `app.${appId}.name`), subtitle: t(language, `app.${appId}.subtitle`) };
+  };
+  const manifestName = (id: string, fallback: string) => {
+    const translated = t(language, `app.${id}.name`);
+    return translated === `app.${id}.name` ? fallback : translated;
+  };
+  const manifestDescription = (id: string, fallback: string) => t(language, `app.${id}.description`) === `app.${id}.description` ? fallback : t(language, `app.${id}.description`);
   const openApp = (appId: InternalAppId) => {
     setActiveNav(null);
     dispatch({ type: "open", appId });
@@ -234,7 +248,7 @@ function App() {
   const launchSpotify = async () => {
     if (spotifyLaunching) return;
     if (!isTauri()) {
-      setSpotifyFeedback("Spotify Desktop kann nur aus der Windows-Desktop-App gestartet werden.");
+      setSpotifyFeedback(t(language, "spotify.notDesktop"));
       return;
     }
     setSpotifyLaunching(true);
@@ -242,8 +256,8 @@ function App() {
     try {
       const result = await invoke<"started" | "alreadyRequested">("launch_spotify");
       setSpotifyFeedback(result === "alreadyRequested"
-        ? "Der Spotify-Start wurde gerade bereits angefordert. Ein registrierter Spotify-URI-Handler leitet den Aufruf an das laufende Spotify weiter, sofern es bereits geöffnet ist."
-        : "Spotify wurde über den Windows-URI-Handler geöffnet oder in den Vordergrund geholt.");
+        ? t(language, "spotify.alreadyRequested")
+        : t(language, "spotify.started"));
     } catch (error) {
       setSpotifyFeedback(String(error));
     } finally {
@@ -281,7 +295,7 @@ function App() {
         if (session) dispatch({ type: "close", id: session.id });
       }
     } catch (error) {
-      setAppStoreError(`App konnte nicht ${install ? "installiert" : "deinstalliert"} werden: ${String(error)}`);
+      setAppStoreError(`${t(language, "store.actionError")} ${t(language, install ? "store.installWord" : "store.removeWord")}: ${String(error)}`);
     } finally {
       setAppStoreBusyId(null);
     }
@@ -490,7 +504,7 @@ function App() {
 
   const saveHotkey = async () => {
     if (!isTauri()) {
-      setHotkeyError("Globale Hotkeys sind nur in der LegionOS-Desktop-App verfügbar.");
+      setHotkeyError(t(language, "hotkey.desktopOnly"));
       return;
     }
     setHotkeySaving(true);
@@ -508,11 +522,11 @@ function App() {
 
   const checkForUpdates = async () => {
     if (!isTauri()) {
-      setUpdaterMessage("Die Updateprüfung ist nur in der installierten LegionOS-Desktop-App verfügbar.");
+      setUpdaterMessage(t(language, "updater.notDesktop"));
       return;
     }
     setUpdaterBusy(true);
-    setUpdaterMessage("Suche nach Updates …");
+    setUpdaterMessage(t(language, "updater.startSearch"));
     setDownloadedBytes(0);
     setDownloadTotal(null);
     if (availableUpdate) await availableUpdate.close().catch(() => undefined);
@@ -520,13 +534,13 @@ function App() {
     try {
       const update = await check({ timeout: 20_000 });
       if (!update) {
-        setUpdaterMessage("LegionOS ist auf dem neuesten Stand.");
+        setUpdaterMessage(t(language, "updater.current"));
         return;
       }
       setAvailableUpdate(update);
-      setUpdaterMessage(`Version ${update.version} ist verfügbar.`);
+      setUpdaterMessage(t(language, "updater.available", { version: update.version }));
     } catch (error) {
-      setUpdaterMessage(`Updateprüfung fehlgeschlagen: ${String(error)}`);
+      setUpdaterMessage(`${t(language, "updater.failed")} ${String(error)}`);
     } finally {
       setUpdaterBusy(false);
     }
@@ -535,120 +549,121 @@ function App() {
   const installAvailableUpdate = async () => {
     if (!availableUpdate || updaterBusy) return;
     const notes = availableUpdate.body?.trim();
-    const detail = notes ? `\n\nVersionshinweise:\n${notes}` : "\n\nFür diese Version sind keine Versionshinweise hinterlegt.";
-    if (!window.confirm(`LegionOS ${availableUpdate.version} herunterladen und installieren?${detail}`)) return;
+    const detail = notes ? `\n\n${t(language, "updater.notes")}\n${notes}` : `\n\n${t(language, "updater.noNotes")}`;
+    if (!window.confirm(`${t(language, "updater.confirm", { version: availableUpdate.version })}${detail}`)) return;
     setUpdaterBusy(true);
-    setUpdaterMessage("Update wird heruntergeladen …");
+    setUpdaterMessage(t(language, "updater.downloading"));
     setDownloadedBytes(0);
     setDownloadTotal(null);
     try {
       await availableUpdate.downloadAndInstall((event: DownloadEvent) => {
         if (event.event === "Started") {
           setDownloadTotal(event.data.contentLength ?? null);
-          setUpdaterMessage("Update wird heruntergeladen …");
+          setUpdaterMessage(t(language, "updater.downloading"));
         } else if (event.event === "Progress") {
           setDownloadedBytes((bytes) => bytes + event.data.chunkLength);
         } else if (event.event === "Finished") {
-          setUpdaterMessage("Download abgeschlossen. Installation wird gestartet …");
+          setUpdaterMessage(t(language, "updater.installing"));
         }
       });
     } catch (error) {
-      setUpdaterMessage(`Installation fehlgeschlagen: ${String(error)}`);
+      setUpdaterMessage(`${t(language, "updater.installFailed")} ${String(error)}`);
       setUpdaterBusy(false);
     }
   };
 
   if (!loaded) {
-    return <main className="boot-screen"><span className="boot-mark"/><span>LegionOS wird vorbereitet …</span></main>;
+    return <main className="boot-screen"><span className="boot-mark"/><span>{t(settings.language, "boot.loading")}</span></main>;
   }
 
   return (
     <main className={`phone-shell mode-${mode}${settings.accentOn ? " accent-on" : " accent-off"}`}>
       <div className="device-hardware" aria-hidden="true"><span className="hardware-camera"/><span className="hardware-speaker"/><span className="hardware-home"/></div>
-      {mode === "tablet" && <nav className="side-panel" aria-label="Hauptnavigation">
+      {mode === "tablet" && <nav className="side-panel" aria-label={t(language, "nav.main")}>
         <div className="side-brand"><img src={legionMark} alt="LΣ" title="LΣGIΦN ΦS"/></div>
         <div className="side-nav">
-          <button className={`side-nav-button${!activeWindow && activeNav === "home" ? " side-nav-active" : ""}`} type="button" aria-label="Startseite" title="Startseite" aria-current={!activeWindow && activeNav === "home" ? "page" : undefined} onClick={openHome}><Icon name="home" size={23}/></button>
-          <button className={`side-nav-button${!activeWindow && activeNav === "store" ? " side-nav-active" : ""}`} type="button" aria-label="App-Store" title="App-Store" aria-current={!activeWindow && activeNav === "store" ? "page" : undefined} onClick={openStore}><Icon name="grid" size={22}/></button>
+          <button className={`side-nav-button${!activeWindow && activeNav === "home" ? " side-nav-active" : ""}`} type="button" aria-label={t(language, "nav.home")} title={t(language, "nav.home")} aria-current={!activeWindow && activeNav === "home" ? "page" : undefined} onClick={openHome}><Icon name="home" size={23}/></button>
+          <button className={`side-nav-button${!activeWindow && activeNav === "store" ? " side-nav-active" : ""}`} type="button" aria-label={t(language, "nav.store")} title={t(language, "nav.store")} aria-current={!activeWindow && activeNav === "store" ? "page" : undefined} onClick={openStore}><Icon name="grid" size={22}/></button>
           {openAppIcons.length > 0 && <span className="side-nav-divider" aria-hidden="true"/>}
           {openAppIcons.map(({ window: session, active, minimized: isMinimized }) => {
             const info = getAppInfo(session.appId);
-            const hint = isMinimized ? `${info.name} (minimiert)` : info.name;
-            return <button key={session.id} className={`side-nav-button side-nav-app${active ? " side-nav-active" : ""}${isMinimized ? " side-nav-minimized" : ""}`} type="button" aria-label={isMinimized ? `${hint}; zum Wiederherstellen aktivieren` : `${info.name} fokussieren`} title={hint} aria-current={active ? "page" : undefined} onClick={() => focusApp(session.id)}><Icon name={info.icon} size={22}/></button>;
+            const hint = isMinimized ? `${info.name} (${t(language, "window.minimized")})` : info.name;
+            return <button key={session.id} className={`side-nav-button side-nav-app${active ? " side-nav-active" : ""}${isMinimized ? " side-nav-minimized" : ""}`} type="button" aria-label={isMinimized ? `${hint}; ${t(language, "nav.minimized.restore")}` : t(language, "nav.focus", { name: info.name })} title={hint} aria-current={active ? "page" : undefined} onClick={() => focusApp(session.id)}><Icon name={info.icon} size={22}/></button>;
           })}
-          {installedExternalApps.map(({ id, info }) => <button key={id} className="side-nav-button side-nav-app side-nav-external" type="button" aria-label={`${info.name} starten oder in den Vordergrund holen`} title={`${info.name} in eigenem Fenster öffnen`} disabled={spotifyLaunching} onClick={() => void openInstalledApp(id)}><Icon name={info.icon} size={22}/></button>)}
+          {installedExternalApps.map(({ id, info }) => <button key={id} className="side-nav-button side-nav-app side-nav-external" type="button" aria-label={t(language, "nav.external.launch", { name: t(language, `app.${id}.name`) })} title={t(language, "nav.external.open", { name: t(language, `app.${id}.name`) })} disabled={spotifyLaunching} onClick={() => void openInstalledApp(id)}><Icon name={info.icon} size={22}/></button>)}
         </div>
-        <span className="side-status" role="status" aria-label="LegionOS bereit" title="LegionOS bereit"/>
+        <span className="side-status" role="status" aria-label={t(language, "nav.ready")} title={t(language, "nav.ready")}/>
       </nav>}
 
       <section className="phone-stage" ref={phoneStageRef}>
         <header className="topbar" data-tauri-drag-region>
-          <div className="topbar-context"><span className="eyebrow">DEIN DIGITALER RAUM</span><span className="topbar-greeting">{greeting.text} <span className="greeting-spark"><Icon name={greeting.icon} size={13}/></span></span></div>
+          <div className="topbar-context"><span className="eyebrow">{t(language, "header.digitalSpace")}</span><span className="topbar-greeting">{greeting.text} <span className="greeting-spark"><Icon name={greeting.icon} size={13}/></span></span></div>
           <div className="topbar-brand" aria-label="LΣGIΦN ΦS">LΣGIΦN ΦS</div>
-          <div className="topbar-right"><span className="date-label">{date}</span><span className="topbar-divider"/><span className="clock">{time}</span><span className="online-indicator" title="Bereit" /></div>
+          <div className="topbar-right"><span className="date-label">{date}</span><span className="topbar-divider"/><span className="clock">{time}</span><span className="online-indicator" title={t(language, "header.ready")} /></div>
         </header>
 
         <div className={`workspace${activeNav === "store" ? " workspace-store" : ""}`} ref={workspaceRef}>
         {spotifyFeedback && <div className="spotify-feedback" role="status">{spotifyFeedback}</div>}
         {activeNav === "store" ? <div className="store-view">
-          <div className="store-heading"><div><p className="section-kicker">LOKALER KATALOG</p><h1>App-Store<span>.</span></h1><p className="welcome-copy">Apps aus dem lokalen Projektkatalog; externe Desktop-Apps starten über fest registrierte Adapter.</p></div><span className="store-local-badge"><span className="status-dot"/> NUR LOKAL</span></div>
+          <div className="store-heading"><div><p className="section-kicker">{t(language, "store.kicker")}</p><h1>{t(language, "store.title")}<span>.</span></h1><p className="welcome-copy">{t(language, "store.subtitle")}</p></div><span className="store-local-badge"><span className="status-dot"/> {t(language, "store.localOnly")}</span></div>
           {appStoreError && <div className="store-message store-error" role="alert">{appStoreError}</div>}
-          {appStoreLoading && <div className="store-message" role="status">Lokale Manifeste werden geprüft …</div>}
+          {appStoreLoading && <div className="store-message" role="status">{t(language, "store.checking")}</div>}
           {!appStoreLoading && !appStoreError && appStore && <>
-            <section className="store-section"><div className="store-section-heading"><h2>Zum Installieren</h2><span>{availableStoreApps.length.toString().padStart(2, "0")}</span></div>
-              {availableStoreApps.length === 0 ? <p className="store-empty">Alle gültigen lokalen Apps sind installiert.</p> : <div className="store-grid">{availableStoreApps.map((item) => {
+            <section className="store-section"><div className="store-section-heading"><h2>{t(language, "store.install")}</h2><span>{availableStoreApps.length.toString().padStart(2, "0")}</span></div>
+              {availableStoreApps.length === 0 ? <p className="store-empty">{t(language, "store.allInstalled")}</p> : <div className="store-grid">{availableStoreApps.map((item) => {
                 const manifest = item.manifest!;
                 const info = appInfo[manifest.id as AppId];
-                return <article className={`store-card app-${info.color}`} key={`${item.folder}-${manifest.id}`}><span className="app-icon-wrap"><Icon name={manifest.icon} size={23}/></span><div className="store-card-copy"><h3>{manifest.name}</h3><span>Version {manifest.version}</span><p>{manifest.description}</p></div><button type="button" className="store-action" title={!canSave ? "Die Konfiguration ist schreibgeschützt." : undefined} disabled={appStoreBusyId !== null || !canSave} onClick={() => void changeInstallation(manifest.id, true)}>{appStoreBusyId === manifest.id ? "Wird installiert …" : "Installieren"}</button></article>;
+                return <article className={`store-card app-${info.color}`} key={`${item.folder}-${manifest.id}`}><span className="app-icon-wrap"><Icon name={manifest.icon} size={23}/></span><div className="store-card-copy"><h3>{manifestName(manifest.id, manifest.name)}</h3><span>{t(language, "store.version", { version: manifest.version })}</span><p>{manifestDescription(manifest.id, manifest.description)}</p></div><button type="button" className="store-action" title={!canSave ? t(language, "store.readOnly") : undefined} disabled={appStoreBusyId !== null || !canSave} onClick={() => void changeInstallation(manifest.id, true)}>{appStoreBusyId === manifest.id ? t(language, "store.installing") : t(language, "store.installButton")}</button></article>;
               })}</div>}
             </section>
-            <section className="store-section"><div className="store-section-heading"><h2>Installiert</h2><span>{installedStoreApps.length.toString().padStart(2, "0")}</span></div>
-              {installedStoreApps.length === 0 ? <p className="store-empty">Keine gültigen Apps installiert.</p> : <div className="store-grid">{installedStoreApps.map((item) => {
+            <section className="store-section"><div className="store-section-heading"><h2>{t(language, "store.installed")}</h2><span>{installedStoreApps.length.toString().padStart(2, "0")}</span></div>
+              {installedStoreApps.length === 0 ? <p className="store-empty">{t(language, "store.noneInstalled")}</p> : <div className="store-grid">{installedStoreApps.map((item) => {
                 const manifest = item.manifest!;
                 const info = appInfo[manifest.id as AppId];
                 const usageState = getAppUsageState(manifest.id, appStore, windowState);
-                const usageLabel = { installed: "Installiert", open: "Geöffnet", minimized: "Minimiert", active: "Aktiv", available: "Verfügbar" }[usageState];
-                return <article className={`store-card app-${info.color}`} key={`${item.folder}-${manifest.id}`}><span className="app-icon-wrap"><Icon name={manifest.icon} size={23}/></span><div className="store-card-copy"><h3>{manifest.name}</h3><span>Version {manifest.version}</span><p>{manifest.description}</p><span className={`store-state store-state-${usageState}`}>{usageLabel}</span></div><button type="button" className="store-action store-remove" title={!canSave ? "Die Konfiguration ist schreibgeschützt." : undefined} disabled={appStoreBusyId !== null || !canSave} onClick={() => void changeInstallation(manifest.id, false)}>{appStoreBusyId === manifest.id ? "Wird entfernt …" : "Deinstallieren"}</button></article>;
+                const usageLabel = t(language, `store.usage.${usageState}`);
+                return <article className={`store-card app-${info.color}`} key={`${item.folder}-${manifest.id}`}><span className="app-icon-wrap"><Icon name={manifest.icon} size={23}/></span><div className="store-card-copy"><h3>{manifestName(manifest.id, manifest.name)}</h3><span>{t(language, "store.version", { version: manifest.version })}</span><p>{manifestDescription(manifest.id, manifest.description)}</p><span className={`store-state store-state-${usageState}`}>{usageLabel}</span></div><button type="button" className="store-action store-remove" title={!canSave ? t(language, "store.readOnly") : undefined} disabled={appStoreBusyId !== null || !canSave} onClick={() => void changeInstallation(manifest.id, false)}>{appStoreBusyId === manifest.id ? t(language, "store.uninstalling") : t(language, "store.uninstall")}</button></article>;
               })}</div>}
             </section>
-            {appStore.apps.some((item) => item.error) && <section className="store-section store-invalid"><div className="store-section-heading"><h2>Übersprungene Einträge</h2></div><ul>{appStore.apps.filter((item) => item.error).map((item) => <li key={item.folder}><strong>{item.folder}</strong><span>{item.error}</span></li>)}</ul></section>}
+            {appStore.apps.some((item) => item.error) && <section className="store-section store-invalid"><div className="store-section-heading"><h2>{t(language, "store.skipped")}</h2></div><ul>{appStore.apps.filter((item) => item.error).map((item) => <li key={item.folder}><strong>{item.folder}</strong><span>{item.error}</span></li>)}</ul></section>}
           </>}
         </div> : <>
           <div className="welcome-row">
-            <div><p className="section-kicker">HOMESCREEN</p><h1>Alles an seinem <span>Platz.</span></h1><p className="welcome-copy">Deine Apps, dein Raum — ganz nach deinem Rhythmus.</p></div>
-            <div className="welcome-date"><span className="date-day">{now.toLocaleDateString("de-DE", { day: "2-digit" })}</span><span className="date-month">{now.toLocaleDateString("de-DE", { month: "short" }).replace(".", "").toUpperCase()}</span></div>
+            <div><p className="section-kicker">{t(language, "home.kicker")}</p><h1>{t(language, "home.titlePrefix")} <span>{t(language, "home.titleAccent")}</span></h1><p className="welcome-copy">{t(language, "home.subtitle")}</p></div>
+            <div className="welcome-date"><span className="date-day">{now.toLocaleDateString(localeForLanguage(language), { day: "2-digit" })}</span><span className="date-month">{now.toLocaleDateString(localeForLanguage(language), { month: "short" }).replace(".", "").toUpperCase()}</span></div>
           </div>
 
           {persistenceNotice && <div className={`persistence-banner${persistence === "error" ? " persistence-error" : ""}`} role="status">{persistenceNotice}</div>}
 
-          <div className="apps-heading"><div><h2>Deine Apps</h2><span className="apps-count">{installedApps.length.toString().padStart(2, "0")} APPS</span></div><span className="apps-hint">Wähle eine App zum Öffnen</span></div>
+          <div className="apps-heading"><div><h2>{t(language, "home.apps")}</h2><span className="apps-count">{installedApps.length.toString().padStart(2, "0")} {t(language, "home.appsCount")}</span></div><span className="apps-hint">{t(language, "home.openHint")}</span></div>
           <div className="app-grid">
             {installedApps.map(({ id, info }, index) => {
               const session = windowState.windows.find((window) => window.appId === id);
+              const localizedInfo = getAppInfo(id);
               return <button className={`app-card app-${info.color}${session && !session.minimized ? " app-running" : ""}`} key={id} onClick={() => openInstalledApp(id)}>
-                <span className="app-card-index">0{index + 1}</span><span className="app-icon-wrap"><Icon name={info.icon} size={25}/><span className="app-icon-glow" /></span>
-                <span className="app-card-title">{info.name}</span><span className="app-card-subtitle">{info.subtitle}</span>
-                <span className="app-card-arrow"><Icon name="chevron" size={15}/></span>{session && <span className={`running-dot${session.minimized ? " running-muted" : ""}`} title={session.minimized ? "Minimiert" : "Geöffnet"}/>}
+                <span className="app-card-index">0{index + 1}</span><span className="app-icon-wrap"><Icon name={localizedInfo.icon} size={25}/><span className="app-icon-glow" /></span>
+                <span className="app-card-title">{localizedInfo.name}</span><span className="app-card-subtitle">{localizedInfo.subtitle}</span>
+                <span className="app-card-arrow"><Icon name="chevron" size={15}/></span>{session && <span className={`running-dot${session.minimized ? " running-muted" : ""}`} title={session.minimized ? t(language, "window.minimized") : t(language, "window.opened")}/>}
               </button>;
             })}
           </div>
 
           <div className="workspace-lower">
-            <div className="tip-card"><div className="tip-icon"><Icon name="spark" size={17}/></div><div><span className="tip-label">KLEINER TIPP</span><p>Dein Geräteformat kannst du jederzeit in den <strong>Einstellungen</strong> ändern.</p></div></div>
-            <div className="session-card"><span className="session-label">DEINE SITZUNG</span><span className="session-value">{windowState.windows.length.toString().padStart(2, "0")} <span>Fenster geöffnet</span></span><span className="session-foot">Änderungen gelten nur während dieser Sitzung</span></div>
+            <div className="tip-card"><div className="tip-icon"><Icon name="spark" size={17}/></div><div><span className="tip-label">{t(language, "home.tipLabel")}</span><p>{t(language, "home.tip")}</p></div></div>
+            <div className="session-card"><span className="session-label">{t(language, "home.session")}</span><span className="session-value">{windowState.windows.length.toString().padStart(2, "0")} <span>{t(language, "home.openWindows")}</span></span><span className="session-foot">{t(language, "home.sessionFoot")}</span></div>
           </div>
         </>}
         </div>
 
         <footer className="bottom-dock">
-          <button className={`dock-home${!activeWindow && activeNav === "home" ? " dock-nav-active" : ""}`} type="button" aria-label="Startseite" title="Startseite" aria-current={!activeWindow && activeNav === "home" ? "page" : undefined} onClick={openHome}><span className="dock-home-icon"><Icon name="home" size={16}/></span><span>Homescreen</span></button>
-          {mode === "phone" && <div className="dock-windows" aria-label="Geöffnete Fenster">
+          <button className={`dock-home${!activeWindow && activeNav === "home" ? " dock-nav-active" : ""}`} type="button" aria-label={t(language, "nav.home")} title={t(language, "nav.home")} aria-current={!activeWindow && activeNav === "home" ? "page" : undefined} onClick={openHome}><span className="dock-home-icon"><Icon name="home" size={16}/></span><span>{t(language, "nav.home.label")}</span></button>
+          {mode === "phone" && <div className="dock-windows" aria-label={t(language, "nav.windows")}>
             {windowState.windows.filter((window) => !window.minimized).map((window) => <button key={window.id} className={`dock-window${window.id === activeWindow?.id ? " dock-active" : ""}`} onClick={() => dispatch({ type: "activate", id: window.id })} title={getAppInfo(window.appId).name}><Icon name={getAppInfo(window.appId).icon} size={15}/><span>{getAppInfo(window.appId).name}</span></button>)}
             {minimized.map((window) => <button key={window.id} className="dock-window dock-minimized" onClick={() => dispatch({ type: "activate", id: window.id })} title={getAppInfo(window.appId).name} aria-label={getAppInfo(window.appId).name}><Icon name={getAppInfo(window.appId).icon} size={15}/><span>{getAppInfo(window.appId).name}</span></button>)}
           </div>}
-          {mode === "phone" && <button className={`dock-store${!activeWindow && activeNav === "store" ? " dock-nav-active" : ""}`} type="button" aria-label="App-Store" title="App-Store" aria-current={!activeWindow && activeNav === "store" ? "page" : undefined} onClick={openStore}><Icon name="grid" size={19}/></button>}
-          {availableUpdate && <button className="dock-update-notice" type="button" onClick={() => openApp("settings")} title={`LegionOS ${availableUpdate.version} installieren`} aria-label={`LegionOS Update ist verfügbar. Version ${availableUpdate.version}. Einstellungen öffnen.`}>LegionOS Update ist verfügbar</button>}
-          <span className="dock-session"><span className="status-dot"/> LEGIONOS <span className="dock-version">PREVIEW</span></span>
+          {mode === "phone" && <button className={`dock-store${!activeWindow && activeNav === "store" ? " dock-nav-active" : ""}`} type="button" aria-label={t(language, "nav.store")} title={t(language, "nav.store")} aria-current={!activeWindow && activeNav === "store" ? "page" : undefined} onClick={openStore}><Icon name="grid" size={19}/></button>}
+          {availableUpdate && <button className="dock-update-notice" type="button" onClick={() => openApp("settings")} title={t(language, "updater.openTitle", { version: availableUpdate.version })} aria-label={`${t(language, "updater.availableBanner")}. ${t(language, "settings.installUpdate", { version: availableUpdate.version })}`}>{t(language, "updater.availableBanner")}</button>}
+          <span className="dock-session"><span className="status-dot"/> {t(language, "nav.session")} <span className="dock-version">{t(language, "nav.preview")}</span></span>
         </footer>
 
         {visibleWindows.map((shownWindow, windowIndex) => {
@@ -669,40 +684,41 @@ function App() {
               } : {}),
             }}
             onPointerDown={() => dispatch({ type: "activate", id: shownWindow.id })}
-            aria-label={`${getAppInfo(shownWindow.appId).name} Fenster`}
+            aria-label={t(language, "window.label", { name: getAppInfo(shownWindow.appId).name })}
           >
           <div className={`window-titlebar${mode === "tablet" ? " window-titlebar-draggable" : ""}`} onPointerDown={(event) => handleWindowPointerDown(shownWindow.id, event)} onPointerMove={handleWindowPointerMove} onPointerUp={handleWindowPointerEnd} onPointerCancel={handleWindowPointerEnd}>
             <div className="window-app-mark"><Icon name={getAppInfo(shownWindow.appId).icon} size={16}/></div>
             <div className="window-title"><strong>{getAppInfo(shownWindow.appId).name}</strong><span>{getAppInfo(shownWindow.appId).subtitle}</span></div>
-            <div className="window-actions"><button onClick={() => dispatch({ type: "minimize", id: shownWindow.id })} aria-label="Fenster minimieren"><Icon name="minus" size={16}/></button><button className="window-close" onClick={() => dispatch({ type: "close", id: shownWindow.id })} aria-label="Fenster schließen"><Icon name="close" size={16}/></button></div>
+            <div className="window-actions"><button onClick={() => dispatch({ type: "minimize", id: shownWindow.id })} aria-label={t(language, "window.minimize")}><Icon name="minus" size={16}/></button><button className="window-close" onClick={() => dispatch({ type: "close", id: shownWindow.id })} aria-label={t(language, "window.close")}><Icon name="close" size={16}/></button></div>
           </div>
           <div className="window-content">
-            {shownWindow.appId === "settings" && <div className="settings-view"><div className="window-section-heading"><span className="section-kicker">PERSONALISIERUNG</span><h2>Dein LegionOS. <span>Deine Regeln.</span></h2><p>Persönliche Optionen, Geräteformat und Overlay-Hotkey werden dauerhaft gespeichert.</p></div>
-              <div className="device-mode-settings"><span className="device-mode-label">GERÄTEFORMAT</span><div className="device-mode-options" role="group" aria-label="Geräteformat">
-                <button className={`device-mode-option${mode === "phone" ? " selected" : ""}`} onClick={() => void changeMode("phone")} aria-pressed={mode === "phone"} disabled={modeChanging}><span className="device-icon device-phone"/><span><strong>Smartphone</strong><small>Hochformat</small></span></button>
-                <button className={`device-mode-option${mode === "tablet" ? " selected" : ""}`} onClick={() => void changeMode("tablet")} aria-pressed={mode === "tablet"} disabled={modeChanging}><span className="device-icon device-tablet"/><span><strong>Tablet</strong><small>Querformat</small></span></button>
-              </div>{modeChanging && <span className="device-mode-status" role="status">Geräteformat wird geändert …</span>}</div>
-              <div className="settings-group"><div className="settings-row"><div className="settings-row-icon settings-cyan"><Icon name="moon" size={17}/></div><div className="settings-row-copy"><strong>Ruhemodus</strong><span>Gespeicherte Beispieloption</span></div><Toggle checked={settings.quietMode} onChange={(checked) => changeSetting({ quietMode: checked })} label="Ruhemodus"/></div>
-                <div className="settings-row"><div className="settings-row-icon settings-violet"><Icon name="sun" size={17}/></div><div className="settings-row-copy"><strong>Cyan-Akzent</strong><span>Leuchtende Akzente im Interface</span></div><Toggle checked={settings.accentOn} onChange={(checked) => changeSetting({ accentOn: checked })} label="Cyan-Akzent"/></div></div>
-              <section className="roadwatch-settings" aria-labelledby="roadwatch-settings-title"><div><span className="section-kicker">ROADWATCH</span><h3 id="roadwatch-settings-title">TruckersMP-Verbindung</h3><p>Diese IDs werden lokal in deiner LegionOS-Konfiguration gespeichert.</p></div><label htmlFor="roadwatch-truckersmp-id">Deine TruckersMP-ID</label><input id="roadwatch-truckersmp-id" type="text" inputMode="numeric" autoComplete="off" maxLength={20} value={truckersmpIdDraft} onChange={(event) => setTruckersmpIdDraft(event.currentTarget.value.replace(/\D/g, "").slice(0, 20))} placeholder="z. B. 12345678"/><label htmlFor="roadwatch-vtc-id">TruckersMP-VTC-ID</label><input id="roadwatch-vtc-id" type="text" inputMode="numeric" autoComplete="off" maxLength={20} value={vtcIdDraft} onChange={(event) => setVtcIdDraft(event.currentTarget.value.replace(/\D/g, "").slice(0, 20))} placeholder="z. B. 12345"/><button className="roadwatch-settings-save" type="button" onClick={saveRoadWatchIds} disabled={!canSave || persistence === "saving" || (truckersmpIdDraft === savedRoadWatchIds.truckersmpId && vtcIdDraft === savedRoadWatchIds.vtcId)}>{persistence === "saving" && (truckersmpIdDraft !== savedRoadWatchIds.truckersmpId || vtcIdDraft !== savedRoadWatchIds.vtcId) ? "Speichert …" : persistence === "error" ? "Erneut speichern" : truckersmpIdDraft === savedRoadWatchIds.truckersmpId && vtcIdDraft === savedRoadWatchIds.vtcId ? "IDs gespeichert" : "IDs speichern"}</button></section>
+            {shownWindow.appId === "settings" && <div className="settings-view"><div className="window-section-heading"><span className="section-kicker">{t(language, "settings.kicker")}</span><h2>{t(language, "settings.title")}</h2><p>{t(language, "settings.subtitle")}</p></div>
+              <div className="language-settings"><div><label className="device-mode-label" htmlFor="ui-language">{t(language, "settings.language.label")}</label><span>{t(language, "settings.language.description")}</span></div><select id="ui-language" value={language} onChange={(event) => changeSetting({ language: event.currentTarget.value as Language })}><option value="en">{t(language, "settings.language.en")}</option><option value="de">{t(language, "settings.language.de")}</option><option value="nl">{t(language, "settings.language.nl")}</option></select></div>
+              <div className="device-mode-settings"><span className="device-mode-label">{t(language, "settings.device.label")}</span><div className="device-mode-options" role="group" aria-label={t(language, "settings.device.label")}>
+                <button className={`device-mode-option${mode === "phone" ? " selected" : ""}`} onClick={() => void changeMode("phone")} aria-pressed={mode === "phone"} disabled={modeChanging}><span className="device-icon device-phone"/><span><strong>{t(language, "settings.phone")}</strong><small>{t(language, "settings.phone.orientation")}</small></span></button>
+                <button className={`device-mode-option${mode === "tablet" ? " selected" : ""}`} onClick={() => void changeMode("tablet")} aria-pressed={mode === "tablet"} disabled={modeChanging}><span className="device-icon device-tablet"/><span><strong>{t(language, "settings.tablet")}</strong><small>{t(language, "settings.tablet.orientation")}</small></span></button>
+              </div>{modeChanging && <span className="device-mode-status" role="status">{t(language, "settings.modeChanging")}</span>}</div>
+              <div className="settings-group"><div className="settings-row"><div className="settings-row-icon settings-cyan"><Icon name="moon" size={17}/></div><div className="settings-row-copy"><strong>{t(language, "settings.quiet")}</strong><span>{t(language, "settings.example")}</span></div><Toggle checked={settings.quietMode} onChange={(checked) => changeSetting({ quietMode: checked })} label={t(language, "settings.quiet")}/></div>
+                <div className="settings-row"><div className="settings-row-icon settings-violet"><Icon name="sun" size={17}/></div><div className="settings-row-copy"><strong>{t(language, "settings.accent")}</strong><span>{t(language, "settings.accentDescription")}</span></div><Toggle checked={settings.accentOn} onChange={(checked) => changeSetting({ accentOn: checked })} label={t(language, "settings.accent")}/></div></div>
+              <section className="roadwatch-settings" aria-labelledby="roadwatch-settings-title"><div><span className="section-kicker">{t(language, "settings.roadwatch")}</span><h3 id="roadwatch-settings-title">{t(language, "settings.roadwatchTitle")}</h3><p>{t(language, "settings.roadwatchDescription")}</p></div><label htmlFor="roadwatch-truckersmp-id">{t(language, "settings.yourTruckersmpId")}</label><input id="roadwatch-truckersmp-id" type="text" inputMode="numeric" autoComplete="off" maxLength={20} value={truckersmpIdDraft} onChange={(event) => setTruckersmpIdDraft(event.currentTarget.value.replace(/\D/g, "").slice(0, 20))} placeholder="12345678"/><label htmlFor="roadwatch-vtc-id">{t(language, "settings.vtcId")}</label><input id="roadwatch-vtc-id" type="text" inputMode="numeric" autoComplete="off" maxLength={20} value={vtcIdDraft} onChange={(event) => setVtcIdDraft(event.currentTarget.value.replace(/\D/g, "").slice(0, 20))} placeholder="12345"/><button className="roadwatch-settings-save" type="button" onClick={saveRoadWatchIds} disabled={!canSave || persistence === "saving" || (truckersmpIdDraft === savedRoadWatchIds.truckersmpId && vtcIdDraft === savedRoadWatchIds.vtcId)}>{persistence === "saving" && (truckersmpIdDraft !== savedRoadWatchIds.truckersmpId || vtcIdDraft !== savedRoadWatchIds.vtcId) ? t(language, "settings.saving") : persistence === "error" ? t(language, "settings.retrySave") : truckersmpIdDraft === savedRoadWatchIds.truckersmpId && vtcIdDraft === savedRoadWatchIds.vtcId ? t(language, "settings.saved") : t(language, "settings.saveIds")}</button></section>
               <section className="updater-settings" aria-labelledby="updater-heading">
-                <div className="updater-heading"><div><span className="section-kicker">LEGIONOS</span><h3 id="updater-heading">Software-Updates</h3></div><span className="updater-lock" title="Signaturprüfung aktiv"><Icon name="check" size={15}/> SIGNIERT</span></div>
-                <p className="updater-description">LegionOS sucht beim Start nach einer neuen Version. Updates werden vor der Installation kryptografisch geprüft. Automatische Updates verwenden derzeit NSIS; MSI-Installationen sind noch nicht getestet.</p>
-                <div className="updater-actions"><button className="updater-button" type="button" onClick={() => void checkForUpdates()} disabled={updaterBusy}>{updaterBusy && !availableUpdate ? "Prüfe …" : "Nach Updates suchen"}</button>
-                  {availableUpdate && <button className="updater-button updater-install" type="button" onClick={() => void installAvailableUpdate()} disabled={updaterBusy}>{updaterBusy ? "Wird installiert …" : `Version ${availableUpdate.version} installieren`}</button>}</div>
-                {availableUpdate?.body && <p className="updater-notes"><strong>Versionshinweise</strong><br/>{availableUpdate.body}</p>}
+                <div className="updater-heading"><div><span className="section-kicker">LEGIONOS</span><h3 id="updater-heading">{t(language, "settings.updates")}</h3></div><span className="updater-lock" title={t(language, "settings.signed")}><Icon name="check" size={15}/> {t(language, "settings.signed")}</span></div>
+                <p className="updater-description">{t(language, "settings.updaterDescription")}</p>
+                <div className="updater-actions"><button className="updater-button" type="button" onClick={() => void checkForUpdates()} disabled={updaterBusy}>{updaterBusy && !availableUpdate ? t(language, "settings.checking") : t(language, "settings.checkUpdates")}</button>
+                  {availableUpdate && <button className="updater-button updater-install" type="button" onClick={() => void installAvailableUpdate()} disabled={updaterBusy}>{updaterBusy ? t(language, "settings.installingUpdate") : t(language, "settings.installUpdate", { version: availableUpdate.version })}</button>}</div>
+                {availableUpdate?.body && <p className="updater-notes"><strong>{t(language, "settings.releaseNotes")}</strong><br/>{availableUpdate.body}</p>}
                 {downloadTotal !== null && downloadTotal > 0 && <div className="updater-progress"><progress max={downloadTotal} value={Math.min(downloadedBytes, downloadTotal)}/><span>{Math.round(Math.min(downloadedBytes / downloadTotal, 1) * 100)} %</span></div>}
-                {updaterBusy && availableUpdate && (downloadTotal === null || downloadTotal <= 0) && downloadedBytes > 0 && <p className="updater-bytes">{(downloadedBytes / 1_048_576).toFixed(1)} MB heruntergeladen</p>}
+                {updaterBusy && availableUpdate && (downloadTotal === null || downloadTotal <= 0) && downloadedBytes > 0 && <p className="updater-bytes">{t(language, "updater.downloaded", { size: (downloadedBytes / 1_048_576).toFixed(1) })}</p>}
                 <p className="updater-status" role="status" aria-live="polite">{updaterMessage}</p>
               </section>
-              <div className="hotkey-settings"><label htmlFor="overlay-hotkey">GLOBALER OVERLAY-HOTKEY</label><div className="hotkey-input-row"><input id="overlay-hotkey" value={hotkeyInput} onChange={(event) => setHotkeyInput(event.currentTarget.value)} placeholder="Tab" aria-describedby="hotkey-help"/><button onClick={() => void saveHotkey()} disabled={hotkeySaving || hotkeyInput.trim() === hotkey}>{hotkeySaving ? "Wird gesetzt …" : "Übernehmen"}</button></div><p id="hotkey-help">Aktuell: <strong>{hotkey}</strong>. Standard: <code>Tab</code> (einzelne Tab-Taste). Kombinationen wie <code>ctrl+shift+space</code> bleiben verfügbar.</p>{hotkeyError && <p className="hotkey-error" role="alert">{hotkeyError}</p>}<p className="ephemeral-note"><span className="note-dot"/> Der Hotkey schaltet das Overlay um. Schließen blendet es aus; „LegionOS beenden“ beendet die Anwendung.</p><button className="exit-phone-button" onClick={() => void invoke("exit_phone")}>LegionOS beenden</button></div>
-              <p className="ephemeral-note"><span className="note-dot"/> {persistence === "error" ? "Speichern fehlgeschlagen — Änderungen sind noch nicht gesichert" : persistence === "memory" ? "Nur in dieser Browser-Vorschau verfügbar" : "Wird automatisch auf diesem Gerät gespeichert"}</p></div>}
-            {shownWindow.appId === "notes" && <div className="notes-view"><div className="window-section-heading"><span className="section-kicker">SCHNELL NOTIERT</span><h2>Was geht dir <span>durch den Kopf?</span></h2><p>Deine Notiz wird automatisch gespeichert.</p></div><label className="note-label" htmlFor="quick-note">MEINE NOTIZ</label><textarea id="quick-note" value={note} onChange={(event) => setNote(event.currentTarget.value)} onBlur={() => { if (isTauri() && canSaveRef.current && note !== lastSavedNote.current) { const value = note; void enqueueSave(async () => { await invoke("save_notes", { notes: value }); lastSavedNote.current = value; }); } }} placeholder="Ein Gedanke, eine Idee, eine Erinnerung …"/><div className="note-footer"><span>{note.length} Zeichen</span><span className={`save-indicator save-${persistence}`}><span className="status-dot"/> {persistence === "saving" ? "Wird gespeichert" : persistence === "error" ? "Speicherproblem" : persistence === "memory" ? "Nur in dieser Vorschau" : "Gespeichert"}</span></div></div>}
-            {shownWindow.appId === "demo" && <div className="demo-view"><div className="window-section-heading"><span className="section-kicker">INTERAKTIVER SPIELPLATZ</span><h2>Ein Klick. <span>Ein bisschen Freude.</span></h2><p>Tippe den Button und schau, was passiert.</p></div><div className="counter-card"><div className="counter-orbit"><Icon name="spark" size={28}/></div><span className="counter-label">DEIN KLICK-ZÄHLER</span><strong className="counter-number">{count.toString().padStart(2, "0")}</strong><button className="counter-button" onClick={() => setCount((value) => value + 1)}>Weiterklicken <Icon name="chevron" size={16}/></button><span className="ephemeral-note"><span className="note-dot"/> Zähler wird nicht gespeichert</span></div><button className="reset-button" onClick={() => setCount(0)}>Zähler zurücksetzen</button></div>}
-            {shownWindow.appId === "focus" && <FocusApp onActivate={() => { setActiveNav(null); dispatch({ type: "activate", id: shownWindow.id }); }}/>}
-            {shownWindow.appId === "snake" && <SnakeApp active={isActive}/>}
-            {shownWindow.appId === "pong" && <PongApp active={isActive}/>}
-            {shownWindow.appId === "roadwatch" && <RoadWatchApp active={isActive} truckersmpId={settings.truckersmpId} vtcId={settings.vtcId} onOpenSettings={() => openApp("settings")}/>}
+              <div className="hotkey-settings"><label htmlFor="overlay-hotkey">{t(language, "settings.hotkeyLabel")}</label><div className="hotkey-input-row"><input id="overlay-hotkey" value={hotkeyInput} onChange={(event) => setHotkeyInput(event.currentTarget.value)} placeholder="Tab" aria-describedby="hotkey-help"/><button onClick={() => void saveHotkey()} disabled={hotkeySaving || hotkeyInput.trim() === hotkey}>{hotkeySaving ? t(language, "settings.saving") : t(language, "settings.apply")}</button></div><p id="hotkey-help">{t(language, "settings.current")}: <strong>{hotkey}</strong>. {t(language, "settings.hotkeyHelp")}</p>{hotkeyError && <p className="hotkey-error" role="alert">{hotkeyError}</p>}<p className="ephemeral-note"><span className="note-dot"/> {t(language, "settings.exitDescription")}</p><button className="exit-phone-button" onClick={() => void invoke("exit_phone")}>{t(language, "settings.exit")}</button></div>
+              <p className="ephemeral-note"><span className="note-dot"/> {persistence === "error" ? t(language, "settings.saveFailed") : persistence === "memory" ? t(language, "settings.memoryOnly") : t(language, "settings.savedLocally")}</p></div>}
+            {shownWindow.appId === "notes" && <div className="notes-view"><div className="window-section-heading"><span className="section-kicker">{t(language, "notes.kicker")}</span><h2>{t(language, "notes.title")}</h2><p>{t(language, "notes.subtitle")}</p></div><label className="note-label" htmlFor="quick-note">{t(language, "notes.label")}</label><textarea id="quick-note" value={note} onChange={(event) => setNote(event.currentTarget.value)} onBlur={() => { if (isTauri() && canSaveRef.current && note !== lastSavedNote.current) { const value = note; void enqueueSave(async () => { await invoke("save_notes", { notes: value }); lastSavedNote.current = value; }); } }} placeholder={t(language, "notes.placeholder")}/><div className="note-footer"><span>{note.length} {t(language, "notes.characters")}</span><span className={`save-indicator save-${persistence}`}><span className="status-dot"/> {t(language, persistence === "saving" ? "notes.saving" : persistence === "error" ? "notes.saveProblem" : persistence === "memory" ? "notes.memory" : "notes.saved")}</span></div></div>}
+            {shownWindow.appId === "demo" && <div className="demo-view"><div className="window-section-heading"><span className="section-kicker">{t(language, "demo.kicker")}</span><h2>{t(language, "demo.title")}</h2><p>{t(language, "demo.subtitle")}</p></div><div className="counter-card"><div className="counter-orbit"><Icon name="spark" size={28}/></div><span className="counter-label">{t(language, "demo.counter")}</span><strong className="counter-number">{count.toString().padStart(2, "0")}</strong><button className="counter-button" onClick={() => setCount((value) => value + 1)}>{t(language, "demo.next")} <Icon name="chevron" size={16}/></button><span className="ephemeral-note"><span className="note-dot"/> {t(language, "demo.notSaved")}</span></div><button className="reset-button" onClick={() => setCount(0)}>{t(language, "demo.reset")}</button></div>}
+            {shownWindow.appId === "focus" && <FocusApp language={language} onActivate={() => { setActiveNav(null); dispatch({ type: "activate", id: shownWindow.id }); }}/>}
+            {shownWindow.appId === "snake" && <SnakeApp active={isActive} language={language}/>}
+            {shownWindow.appId === "pong" && <PongApp active={isActive} language={language}/>}
+            {shownWindow.appId === "roadwatch" && <RoadWatchApp active={isActive} truckersmpId={settings.truckersmpId} vtcId={settings.vtcId} language={language} onOpenSettings={() => openApp("settings")}/>}
           </div>
           {mode === "tablet" && (["n", "s", "e", "w", "ne", "nw", "se", "sw"] as const).map((edge) => <div
             key={edge}
