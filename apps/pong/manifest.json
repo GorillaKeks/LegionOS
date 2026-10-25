@@ -1,0 +1,9 @@
+{
+  "id": "pong",
+  "name": "Pong",
+  "version": "1.0.0",
+  "description": "Der Arcade-Klassiker: Spiele Pong gegen die LegionOS-KI.",
+  "icon": "pong",
+  "type": "internal",
+  "entry": "pong"
+}

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 import type { PointerEvent as ReactPointerEvent } from "react";
@@ -7,22 +7,24 @@ import { appInfo, type AppId, type InternalAppId } from "./apps";
 import { getAppUsageState, selectInstalledApps, selectAvailableApps, selectInstalledCatalogApps, type LocalAppStoreSnapshot } from "./appStore";
 import FocusApp from "./FocusApp";
 import SnakeApp from "../apps/snake/SnakeApp";
+import PongApp from "../apps/pong/PongApp";
+import RoadWatchApp from "../apps/roadwatch/RoadWatchApp";
 import { initialWindowState, selectOpenAppIcons, windowReducer } from "./windowManager";
 import type { WindowPosition, WindowSize } from "./windowManager";
 import { getGreeting } from "./greeting";
 import legionMark from "./assets/legion-tray-sizes/32x32.png";
 
 type ViewMode = "phone" | "tablet";
-type UserSettings = { quietMode: boolean; accentOn: boolean };
+type UserSettings = { quietMode: boolean; accentOn: boolean; truckersmpId: string; vtcId: string };
 type ConfigSnapshot = { version: number; mode: ViewMode; settings: UserSettings; notes: string; canSave: boolean; notice: string | null; overlayHotkey: string; overlayHotkeyError: string | null };
 type PersistenceStatus = "loading" | "saved" | "saving" | "memory" | "error";
 type ResizeEdge = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 type WindowDrag =
   | { kind: "move"; windowId: string; pointerId: number; offsetX: number; offsetY: number }
   | { kind: "resize"; windowId: string; pointerId: number; edge: ResizeEdge; startX: number; startY: number; startWidth: number; startHeight: number; pointerX: number; pointerY: number };
-const defaultSettings: UserSettings = { quietMode: false, accentOn: true };
+const defaultSettings: UserSettings = { quietMode: false, accentOn: true, truckersmpId: "", vtcId: "" };
 
-type IconName = "settings" | "note" | "spark" | "snake" | "chevron" | "close" | "minus" | "home" | "grid" | "sun" | "sunset" | "moon" | "check";
+type IconName = "settings" | "note" | "spark" | "snake" | "pong" | "roadwatch" | "chevron" | "close" | "minus" | "home" | "grid" | "sun" | "sunset" | "moon" | "check";
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
@@ -31,7 +33,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
     note: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></>,
     spark: <><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="m19 16 .9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9L19 16Z"/></>,
     chevron: <path d="m9 18 6-6-6-6"/>, close: <path d="m18 6-12 12M6 6l12 12"/>,
-    minus: <path d="M5 12h14"/>, snake: <><path d="M5 7h7a3 3 0 0 1 3 3v4a3 3 0 0 0 3 3h1"/><path d="M5 7v4a3 3 0 0 0 3 3h4a3 3 0 0 1 3 3v0"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="19" cy="17" r="1" fill="currentColor"/></>, home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-7h6v7"/></>,
+    minus: <path d="M5 12h14"/>, snake: <><path d="M5 7h7a3 3 0 0 1 3 3v4a3 3 0 0 0 3 3h1"/><path d="M5 7v4a3 3 0 0 0 3 3h4a3 3 0 0 1 3 3v0"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="19" cy="17" r="1" fill="currentColor"/></>, pong: <><path d="M5 5v5M5 14v5M19 5v5M19 14v5"/><path d="M12 3v18" strokeDasharray="2 3"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></>, roadwatch: <><path d="m8 3-4 18M16 3l4 18"/><path d="M12 4v3m0 4v3m0 4v3" strokeDasharray="2 1"/><path d="M12 5a3 3 0 0 1 3 3c0 2-3 5-3 5S9 10 9 8a3 3 0 0 1 3-3Z"/><circle cx="12" cy="8" r=".8" fill="currentColor" stroke="none"/></>, home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-7h6v7"/></>,
     grid: <><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></>,
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></>,
     sunset: <><path d="M3 18h18M5 14a7 7 0 0 1 14 0M12 2v3m-7 1 2 2m12-2-2 2m-8 8h2m2 0h2"/></>,
@@ -57,6 +59,9 @@ function App() {
   const [downloadedBytes, setDownloadedBytes] = useState(0);
   const [downloadTotal, setDownloadTotal] = useState<number | null>(null);
   const [count, setCount] = useState(0);
+  const [truckersmpIdDraft, setTruckersmpIdDraft] = useState("");
+  const [vtcIdDraft, setVtcIdDraft] = useState("");
+  const [savedRoadWatchIds, setSavedRoadWatchIds] = useState({ truckersmpId: "", vtcId: "" });
   const [loaded, setLoaded] = useState(false);
   const [canSave, setCanSave] = useState(true);
   const [persistence, setPersistence] = useState<PersistenceStatus>("loading");
@@ -73,6 +78,7 @@ function App() {
   const lastSavedNote = useRef("");
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const saveRevision = useRef(0);
+  const updaterAutoCheckStarted = useRef(false);
   const phoneStageRef = useRef<HTMLElement | null>(null);
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const appWindowElements = useRef(new Map<string, HTMLElement>());
@@ -94,7 +100,7 @@ function App() {
     if (!loaded) return;
     if (!isTauri()) {
       setAppStoreLoading(false);
-      setAppStoreError("Der lokale App-Store ist nur in der Phone-Desktop-App verfügbar.");
+      setAppStoreError("Der lokale App-Store ist nur in der LegionOS-Desktop-App verfügbar.");
       return;
     }
     let cancelled = false;
@@ -122,6 +128,9 @@ function App() {
       if (cancelled) return;
       setMode(config.mode);
       setSettings(config.settings);
+      setTruckersmpIdDraft(config.settings.truckersmpId);
+      setVtcIdDraft(config.settings.vtcId);
+      setSavedRoadWatchIds({ truckersmpId: config.settings.truckersmpId, vtcId: config.settings.vtcId });
       setHotkey(config.overlayHotkey);
       setHotkeyInput(config.overlayHotkey);
       setHotkeyError(config.overlayHotkeyError);
@@ -143,6 +152,31 @@ function App() {
     });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!loaded || !isTauri() || updaterAutoCheckStarted.current) return;
+    updaterAutoCheckStarted.current = true;
+    let cancelled = false;
+    setUpdaterBusy(true);
+    setUpdaterMessage("Suche nach Updates …");
+    void check({ timeout: 20_000 }).then((update) => {
+      if (cancelled) {
+        if (update) void update.close().catch(() => undefined);
+        return;
+      }
+      if (!update) {
+        setUpdaterMessage("LegionOS ist auf dem neuesten Stand.");
+        return;
+      }
+      setAvailableUpdate(update);
+      setUpdaterMessage(`Version ${update.version} ist verfügbar.`);
+    }).catch((error: unknown) => {
+      if (!cancelled) setUpdaterMessage(`Updateprüfung fehlgeschlagen: ${String(error)}`);
+    }).finally(() => {
+      if (!cancelled) setUpdaterBusy(false);
+    });
+    return () => { cancelled = true; };
+  }, [loaded]);
 
   const enqueueSave = (operation: () => Promise<void>) => {
     const revision = ++saveRevision.current;
@@ -414,6 +448,16 @@ function App() {
     void enqueueSave(async () => { await invoke("save_user_settings", { settings: next }); });
   };
 
+  useEffect(() => {
+    if ((persistence === "saved" || persistence === "memory") && settings.truckersmpId === truckersmpIdDraft && settings.vtcId === vtcIdDraft) {
+      setSavedRoadWatchIds({ truckersmpId: settings.truckersmpId, vtcId: settings.vtcId });
+    }
+  }, [persistence, settings.truckersmpId, settings.vtcId, truckersmpIdDraft, vtcIdDraft]);
+
+  const saveRoadWatchIds = () => {
+    changeSetting({ truckersmpId: truckersmpIdDraft, vtcId: vtcIdDraft });
+  };
+
   const changeMode = async (nextMode: ViewMode) => {
     if (nextMode === mode || modeChanging) return;
     if (!isTauri()) {
@@ -446,7 +490,7 @@ function App() {
 
   const saveHotkey = async () => {
     if (!isTauri()) {
-      setHotkeyError("Globale Hotkeys sind nur in der Phone-Desktop-App verfügbar.");
+      setHotkeyError("Globale Hotkeys sind nur in der LegionOS-Desktop-App verfügbar.");
       return;
     }
     setHotkeySaving(true);
@@ -515,7 +559,7 @@ function App() {
   };
 
   if (!loaded) {
-    return <main className="boot-screen"><span className="boot-mark"/><span>Phone wird vorbereitet …</span></main>;
+    return <main className="boot-screen"><span className="boot-mark"/><span>LegionOS wird vorbereitet …</span></main>;
   }
 
   return (
@@ -532,9 +576,9 @@ function App() {
             const hint = isMinimized ? `${info.name} (minimiert)` : info.name;
             return <button key={session.id} className={`side-nav-button side-nav-app${active ? " side-nav-active" : ""}${isMinimized ? " side-nav-minimized" : ""}`} type="button" aria-label={isMinimized ? `${hint}; zum Wiederherstellen aktivieren` : `${info.name} fokussieren`} title={hint} aria-current={active ? "page" : undefined} onClick={() => focusApp(session.id)}><Icon name={info.icon} size={22}/></button>;
           })}
-          {installedExternalApps.map(({ id, info }) => <button key={id} className="side-nav-button side-nav-app side-nav-external" type="button" aria-label="Spotify Desktop starten oder in den Vordergrund holen" title={`${info.name} Desktop in eigenem Fenster öffnen`} disabled={spotifyLaunching} onClick={() => void launchSpotify()}><Icon name={info.icon} size={22}/></button>)}
+          {installedExternalApps.map(({ id, info }) => <button key={id} className="side-nav-button side-nav-app side-nav-external" type="button" aria-label={`${info.name} starten oder in den Vordergrund holen`} title={`${info.name} in eigenem Fenster öffnen`} disabled={spotifyLaunching} onClick={() => void openInstalledApp(id)}><Icon name={info.icon} size={22}/></button>)}
         </div>
-        <span className="side-status" role="status" aria-label="Phone bereit" title="Phone bereit"/>
+        <span className="side-status" role="status" aria-label="LegionOS bereit" title="LegionOS bereit"/>
       </nav>}
 
       <section className="phone-stage" ref={phoneStageRef}>
@@ -547,7 +591,7 @@ function App() {
         <div className={`workspace${activeNav === "store" ? " workspace-store" : ""}`} ref={workspaceRef}>
         {spotifyFeedback && <div className="spotify-feedback" role="status">{spotifyFeedback}</div>}
         {activeNav === "store" ? <div className="store-view">
-          <div className="store-heading"><div><p className="section-kicker">LOKALER KATALOG</p><h1>App-Store<span>.</span></h1><p className="welcome-copy">Apps aus dem Projektordner — ohne Downloads oder externe Quellen.</p></div><span className="store-local-badge"><span className="status-dot"/> NUR LOKAL</span></div>
+          <div className="store-heading"><div><p className="section-kicker">LOKALER KATALOG</p><h1>App-Store<span>.</span></h1><p className="welcome-copy">Apps aus dem lokalen Projektkatalog; externe Desktop-Apps starten über fest registrierte Adapter.</p></div><span className="store-local-badge"><span className="status-dot"/> NUR LOKAL</span></div>
           {appStoreError && <div className="store-message store-error" role="alert">{appStoreError}</div>}
           {appStoreLoading && <div className="store-message" role="status">Lokale Manifeste werden geprüft …</div>}
           {!appStoreLoading && !appStoreError && appStore && <>
@@ -603,7 +647,8 @@ function App() {
             {minimized.map((window) => <button key={window.id} className="dock-window dock-minimized" onClick={() => dispatch({ type: "activate", id: window.id })} title={getAppInfo(window.appId).name} aria-label={getAppInfo(window.appId).name}><Icon name={getAppInfo(window.appId).icon} size={15}/><span>{getAppInfo(window.appId).name}</span></button>)}
           </div>}
           {mode === "phone" && <button className={`dock-store${!activeWindow && activeNav === "store" ? " dock-nav-active" : ""}`} type="button" aria-label="App-Store" title="App-Store" aria-current={!activeWindow && activeNav === "store" ? "page" : undefined} onClick={openStore}><Icon name="grid" size={19}/></button>}
-          <span className="dock-session"><span className="status-dot"/> PHONE OS <span className="dock-version">PREVIEW</span></span>
+          {availableUpdate && <button className="dock-update-notice" type="button" onClick={() => openApp("settings")} title={`LegionOS ${availableUpdate.version} installieren`} aria-label={`LegionOS Update ist verfügbar. Version ${availableUpdate.version}. Einstellungen öffnen.`}>LegionOS Update ist verfügbar</button>}
+          <span className="dock-session"><span className="status-dot"/> LEGIONOS <span className="dock-version">PREVIEW</span></span>
         </footer>
 
         {visibleWindows.map((shownWindow, windowIndex) => {
@@ -632,16 +677,17 @@ function App() {
             <div className="window-actions"><button onClick={() => dispatch({ type: "minimize", id: shownWindow.id })} aria-label="Fenster minimieren"><Icon name="minus" size={16}/></button><button className="window-close" onClick={() => dispatch({ type: "close", id: shownWindow.id })} aria-label="Fenster schließen"><Icon name="close" size={16}/></button></div>
           </div>
           <div className="window-content">
-            {shownWindow.appId === "settings" && <div className="settings-view"><div className="window-section-heading"><span className="section-kicker">PERSONALISIERUNG</span><h2>Dein Phone. <span>Deine Regeln.</span></h2><p>Persönliche Optionen, Geräteformat und Overlay-Hotkey werden dauerhaft gespeichert.</p></div>
+            {shownWindow.appId === "settings" && <div className="settings-view"><div className="window-section-heading"><span className="section-kicker">PERSONALISIERUNG</span><h2>Dein LegionOS. <span>Deine Regeln.</span></h2><p>Persönliche Optionen, Geräteformat und Overlay-Hotkey werden dauerhaft gespeichert.</p></div>
               <div className="device-mode-settings"><span className="device-mode-label">GERÄTEFORMAT</span><div className="device-mode-options" role="group" aria-label="Geräteformat">
                 <button className={`device-mode-option${mode === "phone" ? " selected" : ""}`} onClick={() => void changeMode("phone")} aria-pressed={mode === "phone"} disabled={modeChanging}><span className="device-icon device-phone"/><span><strong>Smartphone</strong><small>Hochformat</small></span></button>
                 <button className={`device-mode-option${mode === "tablet" ? " selected" : ""}`} onClick={() => void changeMode("tablet")} aria-pressed={mode === "tablet"} disabled={modeChanging}><span className="device-icon device-tablet"/><span><strong>Tablet</strong><small>Querformat</small></span></button>
               </div>{modeChanging && <span className="device-mode-status" role="status">Geräteformat wird geändert …</span>}</div>
               <div className="settings-group"><div className="settings-row"><div className="settings-row-icon settings-cyan"><Icon name="moon" size={17}/></div><div className="settings-row-copy"><strong>Ruhemodus</strong><span>Gespeicherte Beispieloption</span></div><Toggle checked={settings.quietMode} onChange={(checked) => changeSetting({ quietMode: checked })} label="Ruhemodus"/></div>
                 <div className="settings-row"><div className="settings-row-icon settings-violet"><Icon name="sun" size={17}/></div><div className="settings-row-copy"><strong>Cyan-Akzent</strong><span>Leuchtende Akzente im Interface</span></div><Toggle checked={settings.accentOn} onChange={(checked) => changeSetting({ accentOn: checked })} label="Cyan-Akzent"/></div></div>
+              <section className="roadwatch-settings" aria-labelledby="roadwatch-settings-title"><div><span className="section-kicker">ROADWATCH</span><h3 id="roadwatch-settings-title">TruckersMP-Verbindung</h3><p>Diese IDs werden lokal in deiner LegionOS-Konfiguration gespeichert.</p></div><label htmlFor="roadwatch-truckersmp-id">Deine TruckersMP-ID</label><input id="roadwatch-truckersmp-id" type="text" inputMode="numeric" autoComplete="off" maxLength={20} value={truckersmpIdDraft} onChange={(event) => setTruckersmpIdDraft(event.currentTarget.value.replace(/\D/g, "").slice(0, 20))} placeholder="z. B. 12345678"/><label htmlFor="roadwatch-vtc-id">TruckersMP-VTC-ID</label><input id="roadwatch-vtc-id" type="text" inputMode="numeric" autoComplete="off" maxLength={20} value={vtcIdDraft} onChange={(event) => setVtcIdDraft(event.currentTarget.value.replace(/\D/g, "").slice(0, 20))} placeholder="z. B. 12345"/><button className="roadwatch-settings-save" type="button" onClick={saveRoadWatchIds} disabled={!canSave || persistence === "saving" || (truckersmpIdDraft === savedRoadWatchIds.truckersmpId && vtcIdDraft === savedRoadWatchIds.vtcId)}>{persistence === "saving" && (truckersmpIdDraft !== savedRoadWatchIds.truckersmpId || vtcIdDraft !== savedRoadWatchIds.vtcId) ? "Speichert …" : persistence === "error" ? "Erneut speichern" : truckersmpIdDraft === savedRoadWatchIds.truckersmpId && vtcIdDraft === savedRoadWatchIds.vtcId ? "IDs gespeichert" : "IDs speichern"}</button></section>
               <section className="updater-settings" aria-labelledby="updater-heading">
                 <div className="updater-heading"><div><span className="section-kicker">LEGIONOS</span><h3 id="updater-heading">Software-Updates</h3></div><span className="updater-lock" title="Signaturprüfung aktiv"><Icon name="check" size={15}/> SIGNIERT</span></div>
-                <p className="updater-description">Prüfe manuell auf eine neue Version. Updates werden vor der Installation kryptografisch geprüft. Automatische Updates verwenden derzeit NSIS; MSI-Installationen sind noch nicht getestet.</p>
+                <p className="updater-description">LegionOS sucht beim Start nach einer neuen Version. Updates werden vor der Installation kryptografisch geprüft. Automatische Updates verwenden derzeit NSIS; MSI-Installationen sind noch nicht getestet.</p>
                 <div className="updater-actions"><button className="updater-button" type="button" onClick={() => void checkForUpdates()} disabled={updaterBusy}>{updaterBusy && !availableUpdate ? "Prüfe …" : "Nach Updates suchen"}</button>
                   {availableUpdate && <button className="updater-button updater-install" type="button" onClick={() => void installAvailableUpdate()} disabled={updaterBusy}>{updaterBusy ? "Wird installiert …" : `Version ${availableUpdate.version} installieren`}</button>}</div>
                 {availableUpdate?.body && <p className="updater-notes"><strong>Versionshinweise</strong><br/>{availableUpdate.body}</p>}
@@ -649,12 +695,14 @@ function App() {
                 {updaterBusy && availableUpdate && (downloadTotal === null || downloadTotal <= 0) && downloadedBytes > 0 && <p className="updater-bytes">{(downloadedBytes / 1_048_576).toFixed(1)} MB heruntergeladen</p>}
                 <p className="updater-status" role="status" aria-live="polite">{updaterMessage}</p>
               </section>
-              <div className="hotkey-settings"><label htmlFor="overlay-hotkey">GLOBALER OVERLAY-HOTKEY</label><div className="hotkey-input-row"><input id="overlay-hotkey" value={hotkeyInput} onChange={(event) => setHotkeyInput(event.currentTarget.value)} placeholder="Tab" aria-describedby="hotkey-help"/><button onClick={() => void saveHotkey()} disabled={hotkeySaving || hotkeyInput.trim() === hotkey}>{hotkeySaving ? "Wird gesetzt …" : "Übernehmen"}</button></div><p id="hotkey-help">Aktuell: <strong>{hotkey}</strong>. Standard: <code>Tab</code> (einzelne Tab-Taste). Kombinationen wie <code>ctrl+shift+space</code> bleiben verfügbar.</p>{hotkeyError && <p className="hotkey-error" role="alert">{hotkeyError}</p>}<p className="ephemeral-note"><span className="note-dot"/> Der Hotkey schaltet das Overlay um. Schließen blendet es aus; „Phone beenden“ beendet die Anwendung.</p><button className="exit-phone-button" onClick={() => void invoke("exit_phone")}>Phone beenden</button></div>
+              <div className="hotkey-settings"><label htmlFor="overlay-hotkey">GLOBALER OVERLAY-HOTKEY</label><div className="hotkey-input-row"><input id="overlay-hotkey" value={hotkeyInput} onChange={(event) => setHotkeyInput(event.currentTarget.value)} placeholder="Tab" aria-describedby="hotkey-help"/><button onClick={() => void saveHotkey()} disabled={hotkeySaving || hotkeyInput.trim() === hotkey}>{hotkeySaving ? "Wird gesetzt …" : "Übernehmen"}</button></div><p id="hotkey-help">Aktuell: <strong>{hotkey}</strong>. Standard: <code>Tab</code> (einzelne Tab-Taste). Kombinationen wie <code>ctrl+shift+space</code> bleiben verfügbar.</p>{hotkeyError && <p className="hotkey-error" role="alert">{hotkeyError}</p>}<p className="ephemeral-note"><span className="note-dot"/> Der Hotkey schaltet das Overlay um. Schließen blendet es aus; „LegionOS beenden“ beendet die Anwendung.</p><button className="exit-phone-button" onClick={() => void invoke("exit_phone")}>LegionOS beenden</button></div>
               <p className="ephemeral-note"><span className="note-dot"/> {persistence === "error" ? "Speichern fehlgeschlagen — Änderungen sind noch nicht gesichert" : persistence === "memory" ? "Nur in dieser Browser-Vorschau verfügbar" : "Wird automatisch auf diesem Gerät gespeichert"}</p></div>}
             {shownWindow.appId === "notes" && <div className="notes-view"><div className="window-section-heading"><span className="section-kicker">SCHNELL NOTIERT</span><h2>Was geht dir <span>durch den Kopf?</span></h2><p>Deine Notiz wird automatisch gespeichert.</p></div><label className="note-label" htmlFor="quick-note">MEINE NOTIZ</label><textarea id="quick-note" value={note} onChange={(event) => setNote(event.currentTarget.value)} onBlur={() => { if (isTauri() && canSaveRef.current && note !== lastSavedNote.current) { const value = note; void enqueueSave(async () => { await invoke("save_notes", { notes: value }); lastSavedNote.current = value; }); } }} placeholder="Ein Gedanke, eine Idee, eine Erinnerung …"/><div className="note-footer"><span>{note.length} Zeichen</span><span className={`save-indicator save-${persistence}`}><span className="status-dot"/> {persistence === "saving" ? "Wird gespeichert" : persistence === "error" ? "Speicherproblem" : persistence === "memory" ? "Nur in dieser Vorschau" : "Gespeichert"}</span></div></div>}
             {shownWindow.appId === "demo" && <div className="demo-view"><div className="window-section-heading"><span className="section-kicker">INTERAKTIVER SPIELPLATZ</span><h2>Ein Klick. <span>Ein bisschen Freude.</span></h2><p>Tippe den Button und schau, was passiert.</p></div><div className="counter-card"><div className="counter-orbit"><Icon name="spark" size={28}/></div><span className="counter-label">DEIN KLICK-ZÄHLER</span><strong className="counter-number">{count.toString().padStart(2, "0")}</strong><button className="counter-button" onClick={() => setCount((value) => value + 1)}>Weiterklicken <Icon name="chevron" size={16}/></button><span className="ephemeral-note"><span className="note-dot"/> Zähler wird nicht gespeichert</span></div><button className="reset-button" onClick={() => setCount(0)}>Zähler zurücksetzen</button></div>}
             {shownWindow.appId === "focus" && <FocusApp onActivate={() => { setActiveNav(null); dispatch({ type: "activate", id: shownWindow.id }); }}/>}
             {shownWindow.appId === "snake" && <SnakeApp active={isActive}/>}
+            {shownWindow.appId === "pong" && <PongApp active={isActive}/>}
+            {shownWindow.appId === "roadwatch" && <RoadWatchApp active={isActive} truckersmpId={settings.truckersmpId} vtcId={settings.vtcId} onOpenSettings={() => openApp("settings")}/>}
           </div>
           {mode === "tablet" && (["n", "s", "e", "w", "ne", "nw", "se", "sw"] as const).map((edge) => <div
             key={edge}

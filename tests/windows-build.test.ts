@@ -25,12 +25,12 @@ test("selects the newly produced x64 installers and ignores old versioned output
     const msi = path.join(root, "msi");
     mkdirSync(nsis);
     mkdirSync(msi);
-    writeFileSync(path.join(nsis, "Phone_0.1.0_x64-setup.exe"), "old-nsis");
-    writeFileSync(path.join(msi, "Phone_0.1.0_x64_en-US.msi"), "old-msi");
+    writeFileSync(path.join(nsis, "LegionOS_0.1.0_x64-setup.exe"), "old-nsis");
+    writeFileSync(path.join(msi, "LegionOS_0.1.0_x64_en-US.msi"), "old-msi");
     const beforeBuild = snapshotInstallerFiles(root);
 
-    const freshNsis = path.join(nsis, "Phone_0.2.0_x64-setup.exe");
-    const freshMsi = path.join(msi, "Phone_0.2.0_x64_en-US.msi");
+    const freshNsis = path.join(nsis, "LegionOS_0.2.0_x64-setup.exe");
+    const freshMsi = path.join(msi, "LegionOS_0.2.0_x64_en-US.msi");
     writeFileSync(freshNsis, "fresh-nsis");
     writeFileSync(freshMsi, "fresh-msi");
 
@@ -43,7 +43,7 @@ test("rejects unchanged stale installers and fixed-name aliases as source artifa
   withTempDirectory((root) => {
     const nsis = path.join(root, "nsis");
     mkdirSync(nsis);
-    const stalePath = path.join(nsis, "Phone_0.1.0_x64-setup.exe");
+    const stalePath = path.join(nsis, "LegionOS_0.1.0_x64-setup.exe");
     writeFileSync(stalePath, "old-nsis");
     const aliasPath = path.join(nsis, "LegionOS_x64-setup.exe");
     writeFileSync(aliasPath, "previous-alias");
@@ -61,7 +61,7 @@ test("fails clearly when a fresh expected installer was not produced", () => {
     const msi = path.join(root, "msi");
     mkdirSync(msi);
     const beforeBuild = snapshotInstallerFiles(root);
-    const expected = path.join(msi, "Phone_0.2.0_arm64_en-US.msi");
+    const expected = path.join(msi, "LegionOS_0.2.0_arm64_en-US.msi");
     writeFileSync(expected, "fresh-but-wrong-architecture");
 
     assert.throws(
@@ -75,7 +75,7 @@ test("requires a new non-empty Minisign signature next to each fresh installer",
   withTempDirectory((root) => {
     const nsis = path.join(root, "nsis");
     mkdirSync(nsis);
-    const installer = path.join(nsis, "Phone_1.0.1_x64-setup.exe");
+    const installer = path.join(nsis, "LegionOS_1.0.1_x64-setup.exe");
     const signaturePath = `${installer}.sig`;
     writeFileSync(installer, "new-installer");
     const beforeBuild = snapshotInstallerFiles(root);
@@ -86,7 +86,7 @@ test("requires a new non-empty Minisign signature next to each fresh installer",
 
 test("accepts Tauri's Base64 signature format and UTF-8 BOM without logging contents", () => {
   withTempDirectory((root) => {
-    const installer = path.join(root, "Phone_1.0.1_x64-setup.exe");
+    const installer = path.join(root, "LegionOS_1.0.1_x64-setup.exe");
     const signaturePath = `${installer}.sig`;
     writeFileSync(installer, "installer");
     const beforeBuild = snapshotInstallerFiles(root);
@@ -98,7 +98,7 @@ test("accepts Tauri's Base64 signature format and UTF-8 BOM without logging cont
 
 test("reports safe structural diagnostics for an empty signature file", () => {
   withTempDirectory((root) => {
-    const installer = path.join(root, "Phone_1.0.1_x64-setup.exe");
+    const installer = path.join(root, "LegionOS_1.0.1_x64-setup.exe");
     const signaturePath = `${installer}.sig`;
     writeFileSync(installer, "installer");
     const beforeBuild = snapshotInstallerFiles(root);
@@ -110,7 +110,7 @@ test("reports safe structural diagnostics for an empty signature file", () => {
 
 test("reports format metadata without including malformed signature contents", () => {
   withTempDirectory((root) => {
-    const installer = path.join(root, "Phone_1.0.1_x64-setup.exe");
+    const installer = path.join(root, "LegionOS_1.0.1_x64-setup.exe");
     const signaturePath = `${installer}.sig`;
     writeFileSync(installer, "installer");
     const beforeBuild = snapshotInstallerFiles(root);
@@ -128,7 +128,7 @@ test("reports format metadata without including malformed signature contents", (
 
 test("rejects a missing, unchanged, or malformed updater signature", () => {
   withTempDirectory((root) => {
-    const installer = path.join(root, "Phone_1.0.1_x64-setup.exe");
+    const installer = path.join(root, "LegionOS_1.0.1_x64-setup.exe");
     writeFileSync(installer, "installer");
     const beforeBuild = snapshotInstallerFiles(root);
     assert.throws(() => findFreshSignature(installer, beforeBuild), /signature is missing/);

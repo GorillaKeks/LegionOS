@@ -7,13 +7,15 @@ use std::{
 use tauri::{AppHandle, Manager, path::BaseDirectory};
 
 const MAX_MANIFEST_BYTES: u64 = 64 * 1024;
-const SUPPORTED: &[(&str, &str)] = &[
-    ("settings", "settings"),
-    ("notes", "notes"),
-    ("demo", "demo"),
-    ("focus", "focus"),
-    ("snake", "snake"),
-    ("spotify", "spotify"),
+const SUPPORTED: &[(&str, &str, &str)] = &[
+    ("settings", "settings", "internal"),
+    ("notes", "notes", "internal"),
+    ("demo", "demo", "internal"),
+    ("focus", "focus", "internal"),
+    ("snake", "snake", "internal"),
+    ("pong", "pong", "internal"),
+    ("spotify", "spotify", "internal"),
+    ("roadwatch", "roadwatch", "internal"),
 ];
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -265,17 +267,18 @@ fn validate_manifest(manifest: &AppManifest) -> Result<(), String> {
     if !bounded_text(&manifest.description, 1, 240) {
         return Err("Beschreibung muss 1 bis 240 Zeichen lang sein.".into());
     }
-    if !["settings", "note", "spark", "snake"].contains(&manifest.icon.as_str()) {
+    if !["settings", "note", "spark", "snake", "pong", "roadwatch"]
+        .contains(&manifest.icon.as_str())
+    {
         return Err("Dieses Icon wird nicht unterstützt.".into());
     }
-    if manifest.app_type != "internal" {
-        return Err("Nur lokale Apps vom Typ internal werden unterstützt.".into());
-    }
-    if !SUPPORTED
-        .iter()
-        .any(|(id, entry)| *id == manifest.id && *entry == manifest.entry)
-    {
-        return Err("Der Einstiegspunkt ist nicht registriert oder passt nicht zur App-ID.".into());
+    if !SUPPORTED.iter().any(|(id, entry, app_type)| {
+        *id == manifest.id && *entry == manifest.entry && *app_type == manifest.app_type
+    }) {
+        return Err(
+            "App-Typ und Einstiegspunkt sind nicht registriert oder passen nicht zur App-ID."
+                .into(),
+        );
     }
     Ok(())
 }
@@ -375,6 +378,20 @@ mod tests {
     }
 
     #[test]
+    fn accepts_registered_pong_manifest_and_icon() {
+        let manifest = AppManifest {
+            id: "pong".into(),
+            name: "Pong".into(),
+            version: "1.0.0".into(),
+            description: "Arcade-Klassiker gegen die LegionOS-KI".into(),
+            icon: "pong".into(),
+            app_type: "internal".into(),
+            entry: "pong".into(),
+        };
+        assert!(validate_manifest(&manifest).is_ok());
+    }
+
+    #[test]
     fn accepts_registered_spotify_manifest_and_tracks_install_state() {
         let root = root();
         let folder = root.join("spotify");
@@ -467,7 +484,7 @@ mod tests {
     fn development_catalog_path_is_derived_from_the_tauri_project_marker() {
         let root = root();
         let tauri_dir = root.join("src-tauri");
-        let executable = tauri_dir.join("target/debug/phone.exe");
+        let executable = tauri_dir.join("target/debug/legionos.exe");
         fs::create_dir_all(executable.parent().unwrap()).unwrap();
         fs::write(tauri_dir.join("tauri.conf.json"), "{}").unwrap();
         fs::create_dir_all(root.join("apps")).unwrap();

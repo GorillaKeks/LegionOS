@@ -1,0 +1,9 @@
+{
+  "id": "roadwatch",
+  "name": "RoadWatch",
+  "version": "0.1.4",
+  "description": "Live-Übersicht für VTC-Mitglieder und TruckersMP-Fahrer.",
+  "icon": "roadwatch",
+  "type": "internal",
+  "entry": "roadwatch"
+}

@@ -26,6 +26,19 @@ test("Spotify is available before install and listed as installed without an int
   assert.equal(getAppUsageState("spotify", installed, initialWindowState), "installed");
 });
 
+test("Pong appears as a local store app and uses the shared installed-window state", () => {
+  const manifest = { id: "pong" as const, name: "Pong", version: "1.0.0", description: "Pong gegen die LegionOS-KI", icon: "pong" as const, type: "internal" as const, entry: "pong" };
+  const available: LocalAppStoreSnapshot = { apps: [{ folder: "pong", manifest, error: null, installed: false }], installedIds: [] };
+  const installed: LocalAppStoreSnapshot = { apps: [{ folder: "pong", manifest, error: null, installed: true }], installedIds: ["pong"] };
+  assert.deepEqual(selectAvailableApps(available).map((app) => app.manifest?.id), ["pong"]);
+  assert.deepEqual(selectInstalledApps(installed).map((app) => app.id), ["pong"]);
+  let windows = windowReducer(initialWindowState, { type: "open", appId: "pong" });
+  assert.equal(getAppUsageState("pong", installed, windows), "active");
+  const id = windows.windows[0].id;
+  windows = windowReducer(windows, { type: "minimize", id });
+  assert.equal(getAppUsageState("pong", installed, windows), "minimized");
+});
+
 test("app usage state distinguishes available, installed, open, minimized, active, and closed", () => {
   const snapshot: LocalAppStoreSnapshot = { apps: [entry("notes", true)], installedIds: ["notes"] };
   const available: LocalAppStoreSnapshot = { apps: [entry("focus", false)], installedIds: [] };

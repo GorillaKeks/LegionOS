@@ -1,0 +1,47 @@
+.roadwatch-app { min-height: 100%; padding: 20px; color: #dce8ef; background: radial-gradient(ellipse at 86% 0,rgba(19,112,130,.11),transparent 43%),#0b121a; font-family: 'DM Sans',Manrope,sans-serif; }
+.roadwatch-app * { box-sizing: border-box; }
+.roadwatch-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 17px; }
+.roadwatch-kicker { color: #64d8e9; font-size: 8px; font-weight: 700; letter-spacing: 1.4px; }
+.roadwatch-heading h2 { margin: 4px 0 3px; color: #edf5f8; font: 600 22px/1.2 Manrope,sans-serif; letter-spacing: -.4px; }
+.roadwatch-heading h2 span { color: #5dddf2; }
+.roadwatch-heading p { margin: 0; color: #8293a0; font-size: 10px; }
+.roadwatch-refresh,.roadwatch-primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 32px; padding: 0 10px; border: 1px solid rgba(93,221,242,.28); border-radius: 7px; color: #9de7f1; background: rgba(34,104,118,.14); font: 600 9px 'DM Sans',sans-serif; cursor: pointer; }
+.roadwatch-refresh:disabled { cursor: wait; opacity: .65; }
+.roadwatch-refresh-glyph { font-size: 17px; line-height: 1; }
+.roadwatch-refresh-glyph.spinning { animation: roadwatch-spin .8s linear infinite; }
+@keyframes roadwatch-spin { to { transform: rotate(360deg); } }
+.roadwatch-message { margin: 0 0 10px; padding: 9px 10px; border: 1px solid #273a46; border-radius: 7px; color: #a6c2ca; background: rgba(27,53,63,.35); font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
+.roadwatch-error { border-color: rgba(219,132,105,.3); color: #e2ae9d; background: rgba(89,47,38,.18); }
+.roadwatch-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-bottom: 11px; }
+.roadwatch-stats article { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 10px 11px; border: 1px solid #202f3b; border-radius: 9px; background: linear-gradient(145deg,rgba(19,33,44,.92),rgba(13,22,31,.92)); }
+.roadwatch-stats article span { color: #7f929f; font-size: 7px; font-weight: 700; letter-spacing: .9px; }
+.roadwatch-stats article strong { color: #e4eef3; font: 600 19px/1 Manrope,sans-serif; }
+.roadwatch-stats article .roadwatch-stat-online { color: #64dfc3; }
+.roadwatch-stats article .roadwatch-stat-muted { color: #92a0aa; }
+.roadwatch-list-toolbar { display: grid; grid-template-columns: minmax(0,1fr) 98px; gap: 8px; margin-bottom: 9px; }
+.roadwatch-list-toolbar input,.roadwatch-list-toolbar select { width: 100%; height: 32px; padding: 0 9px; border: 1px solid #253541; border-radius: 7px; outline: 0; color: #d2e0e7; background: #101923; font: 9px 'DM Sans',sans-serif; }
+.roadwatch-list-toolbar input:focus,.roadwatch-list-toolbar select:focus { border-color: rgba(93,221,242,.55); box-shadow: 0 0 0 2px rgba(93,221,242,.08); }
+.roadwatch-list { display: grid; gap: 6px; max-height: min(48vh,390px); min-height: 80px; overflow: auto; scrollbar-width: thin; scrollbar-color: #31444f transparent; }
+.roadwatch-member { display: grid; grid-template-columns: 8px 30px minmax(0,1fr) auto; align-items: center; gap: 8px; min-width: 0; padding: 8px 9px; border: 1px solid #1d2b36; border-radius: 8px; background: rgba(15,24,33,.88); }
+.roadwatch-member-own { border-color: rgba(93,221,242,.24); background: rgba(20,47,57,.45); }
+.roadwatch-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #74808a; box-shadow: 0 0 0 3px rgba(116,128,138,.09); }
+.roadwatch-status-dot.is-online { background: #62dfba; box-shadow: 0 0 8px rgba(98,223,186,.48); }
+.roadwatch-avatar { position: relative; display: grid; place-items: center; width: 30px; height: 30px; overflow: hidden; border: 1px solid #2b4250; border-radius: 8px; color: #74dfee; background: linear-gradient(145deg,#18313d,#111b25); font: 600 12px Manrope,sans-serif; }
+.roadwatch-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.roadwatch-member-main { display: grid; gap: 2px; min-width: 0; }
+.roadwatch-member-main>strong { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; color: #dbe7ed; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.roadwatch-member-main>strong small { flex: 0 0 auto; padding: 2px 4px; border-radius: 3px; color: #70dceb; background: rgba(93,221,242,.1); font-size: 6px; letter-spacing: .4px; }
+.roadwatch-member-main>span { overflow: hidden; color: #80919e; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.roadwatch-member-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.roadwatch-member-meta span { color: #78cbd7; font-size: 7px; }
+.roadwatch-member-meta span+span { color: #9aa9b3; }
+.roadwatch-distance { color: #b4c3cc; font-size: 8px; white-space: nowrap; }
+.roadwatch-list-empty { padding: 16px 8px; color: #8796a1; font-size: 9px; text-align: center; }
+.roadwatch-footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 9px; color: #697c89; font-size: 7px; }
+.roadwatch-empty-setup { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-height: 260px; padding: 26px; }
+.roadwatch-empty-icon { display: grid; place-items: center; width: 44px; height: 44px; margin: 18px 0 12px; border: 1px solid rgba(93,221,242,.3); border-radius: 14px; color: #6ae0ef; background: rgba(19,69,81,.35); font: 600 13px Manrope,sans-serif; }
+.roadwatch-empty-setup h2 { margin: 0; color: #e6eef2; font: 600 17px Manrope,sans-serif; }
+.roadwatch-empty-setup p { max-width: 420px; margin: 7px 0 14px; color: #8797a2; font-size: 10px; line-height: 1.6; }
+.roadwatch-primary-button:hover { background: rgba(34,104,118,.25); }
+.roadwatch-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+@media(max-width:480px) { .roadwatch-app { padding: 14px; }.roadwatch-heading { gap: 8px; }.roadwatch-heading h2 { font-size: 19px; }.roadwatch-refresh { padding: 0 8px; }.roadwatch-refresh>span:last-child { display: none; }.roadwatch-stats { gap: 5px; }.roadwatch-stats article { padding: 8px; }.roadwatch-stats article strong { font-size: 16px; } }

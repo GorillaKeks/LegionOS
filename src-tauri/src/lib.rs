@@ -2,6 +2,7 @@ mod app_catalog;
 mod config;
 mod hotkey;
 mod right_control;
+mod roadwatch;
 mod spotify;
 mod window_control;
 
@@ -18,11 +19,22 @@ struct ActiveHotkey(Mutex<Option<String>>);
 struct ToggleDebounce(Mutex<Option<Instant>>);
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-enum SpotifyLaunchResult { Started, AlreadyRequested }
+enum SpotifyLaunchResult {
+    Started,
+    AlreadyRequested,
+}
 
 #[tauri::command]
-fn launch_spotify(store: State<'_, ConfigStore>, gate: State<'_, spotify::LaunchGate>) -> Result<SpotifyLaunchResult, String> {
-    if !store.config().installed_apps.iter().any(|id| id == "spotify") {
+fn launch_spotify(
+    store: State<'_, ConfigStore>,
+    gate: State<'_, spotify::LaunchGate>,
+) -> Result<SpotifyLaunchResult, String> {
+    if !store
+        .config()
+        .installed_apps
+        .iter()
+        .any(|id| id == "spotify")
+    {
         return Err(spotify::SpotifyLaunchError::NotInstalledInPhone.message());
     }
     if !gate.try_begin(Instant::now(), Duration::from_millis(1800)) {
@@ -40,12 +52,30 @@ fn load_phone_config(store: State<'_, ConfigStore>) -> ConfigSnapshot {
 
 #[tauri::command]
 fn save_user_settings(settings: UserSettings, store: State<'_, ConfigStore>) -> Result<(), String> {
+    for (label, value) in [
+        ("TruckersMP-ID", &settings.truckersmp_id),
+        ("VTC-ID", &settings.vtc_id),
+    ] {
+        if !value.is_empty()
+            && (value.len() > 20 || !value.bytes().all(|byte| byte.is_ascii_digit()))
+        {
+            return Err(format!("{label} muss aus höchstens 20 Ziffern bestehen."));
+        }
+    }
     store.update_settings(settings)
 }
 
 #[tauri::command]
 fn save_notes(notes: String, store: State<'_, ConfigStore>) -> Result<(), String> {
     store.update_notes(notes)
+}
+
+#[tauri::command]
+async fn load_roadwatch_data(
+    store: State<'_, ConfigStore>,
+) -> Result<roadwatch::RoadWatchData, String> {
+    let settings = store.config().settings;
+    roadwatch::load_data(&settings.vtc_id, &settings.truckersmp_id).await
 }
 
 #[tauri::command]
@@ -181,7 +211,7 @@ fn set_windows_taskbar_icon(window: &WebviewWindow) -> Result<(), String> {
         .0 as windows_sys::Win32::Foundation::HWND;
     let small_icon = unsafe { SendMessageW(hwnd, WM_GETICON, ICON_SMALL as usize, 0) };
     if small_icon == 0 {
-        return Err("Das Phone-Fenster hat kein kleines Icon-Handle.".into());
+        return Err("Das LegionOS-Fenster hat kein kleines Icon-Handle.".into());
     }
 
     // Tauri's set_icon sets ICON_SMALL; the taskbar reads ICON_BIG on Windows.
@@ -251,6 +281,7 @@ pub fn run() {
                 load_phone_config,
                 save_user_settings,
                 save_notes,
+                load_roadwatch_data,
                 load_local_apps,
                 install_local_app,
                 uninstall_local_app,

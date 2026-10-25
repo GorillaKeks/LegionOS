@@ -1,6 +1,6 @@
-# Phone
+# LegionOS
 
-Phone is a desktop application built with Tauri 2, React, TypeScript, and Vite.
+LegionOS is a desktop application built with Tauri 2, React, TypeScript, and Vite.
 
 ## Development
 
@@ -14,7 +14,7 @@ The homescreen includes Settings, Notes, and Demo. Settings, notes, the selected
 
 The versioned JSON configuration is `phone.json` in Tauri's `app_config_dir()` (on Windows: `%APPDATA%\com.phone.overlay\phone.json`). Writes use a temporary sibling file and atomic rename. Invalid files are preserved as `.corrupt-*` backups; older schemas are migrated with defaults; newer schemas are opened read-only to avoid overwriting data. No filesystem plugin permission is added: persistence uses typed Rust commands, while the existing `core:default` capability remains for core window APIs. Notes are stored as plain text in this local configuration file. Schema version 2 also stores the configurable overlay hotkey.
 
-The overlay uses the official `tauri-plugin-global-shortcut` plugin (Rust API, no JavaScript bindings required) to register one Windows global shortcut without polling keyboard input. The initial binding is `Ctrl+Shift+Space`; change it in Settings using accelerator syntax such as `ctrl+shift+space` or `alt+f10`. Registration conflicts and malformed combinations are reported in the settings panel, and a failed change leaves the previous binding active. Alt Gr alone is not the default: Windows reports it using right Alt plus Ctrl semantics, while this global-shortcut API registers a key plus modifiers, so a modifier-only binding cannot be relied on consistently. Closing the native window hides the overlay and keeps Phone running; use **Phone beenden** in Settings to exit. The implementation does not enable transparency, always-on-top, or mouse click-through, and game focus/input behavior has not been verified interactively.
+The overlay uses the official `tauri-plugin-global-shortcut` plugin (Rust API, no JavaScript bindings required) to register one Windows global shortcut without polling keyboard input. The initial binding is `Ctrl+Shift+Space`; change it in Settings using accelerator syntax such as `ctrl+shift+space` or `alt+f10`. Registration conflicts and malformed combinations are reported in the settings panel, and a failed change leaves the previous binding active. Alt Gr alone is not the default: Windows reports it using right Alt plus Ctrl semantics, while this global-shortcut API registers a key plus modifiers, so a modifier-only binding cannot be relied on consistently. Closing the native window hides the overlay and keeps LegionOS running; use **LegionOS beenden** in Settings to exit. The implementation does not enable transparency, always-on-top, or mouse click-through, and game focus/input behavior has not been verified interactively.
 
 Native phone and tablet sizes are selected in logical pixels, scaled for the active display, and clamped to the monitor work area. Restored bounds are clamped to an available monitor. Resize and move events update saved bounds with a short write throttle, and close/exit performs a final flush. Internal React app windows remain separate from the native Tauri window and are not restored between launches.
 
@@ -28,7 +28,7 @@ Run the window-management tests with `npm test`.
 
 Run Rust unit tests with `cargo test --manifest-path src-tauri/Cargo.toml`.
 
-The Tauri bundle identifier is `com.phone.overlay`.
+The Tauri bundle identifier remains `com.phone.overlay` and settings remain in `%APPDATA%\com.phone.overlay\phone.json` to preserve the existing app identity and user data. These legacy storage identifiers are intentionally retained for compatibility.
 
 ## Recommended IDE setup
 

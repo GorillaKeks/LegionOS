@@ -23,12 +23,12 @@ export function checkReleaseVersion(tag, root = projectRoot) {
     const packageEntries = contents.split(/(?=^\[\[package\]\]\s*$)/m).slice(1);
     for (const entry of packageEntries) {
       const name = entry.match(/^name\s*=\s*"([^"]+)"\s*$/m)?.[1];
-      if (name === "phone") {
+      if (name === "legionos") {
         const version = entry.match(/^version\s*=\s*"([^"]+)"\s*$/m)?.[1];
         if (version) return version;
       }
     }
-    throw new Error("Could not find package phone in src-tauri/Cargo.lock.");
+    throw new Error("Could not find package legionos in src-tauri/Cargo.lock.");
   };
 
   const packageJson = readJsonAt("package.json");
@@ -40,7 +40,7 @@ export function checkReleaseVersion(tag, root = projectRoot) {
     ["package-lock.json root package", packageLock.packages?.[""]?.version],
     ["src-tauri/tauri.conf.json", tauriConfig.version],
     ["src-tauri/Cargo.toml", readCargoTomlAt()],
-    ["src-tauri/Cargo.lock (phone)", readCargoLockAt()],
+    ["src-tauri/Cargo.lock (legionos)", readCargoLockAt()],
   ]);
 
   const mismatches = [...versions]

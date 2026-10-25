@@ -10,7 +10,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-pub const CONFIG_VERSION: u32 = 6;
+pub const CONFIG_VERSION: u32 = 7;
 pub const DEFAULT_OVERLAY_HOTKEY: &str = "Tab";
 const PRE_V3_DEFAULT_HOTKEYS: &[&str] = &[
     "ctrl+shift+space",
@@ -35,6 +35,8 @@ pub enum ViewMode {
 pub struct UserSettings {
     pub quiet_mode: bool,
     pub accent_on: bool,
+    pub truckersmp_id: String,
+    pub vtc_id: String,
 }
 
 impl Default for UserSettings {
@@ -42,6 +44,8 @@ impl Default for UserSettings {
         Self {
             quiet_mode: false,
             accent_on: true,
+            truckersmp_id: String::new(),
+            vtc_id: String::new(),
         }
     }
 }
@@ -405,7 +409,9 @@ mod tests {
             defaults.settings,
             UserSettings {
                 quiet_mode: false,
-                accent_on: true
+                accent_on: true,
+                truckersmp_id: String::new(),
+                vtc_id: String::new(),
             }
         );
         assert!(defaults.notes.is_empty());
@@ -422,6 +428,8 @@ mod tests {
             .update_settings(UserSettings {
                 quiet_mode: true,
                 accent_on: false,
+                truckersmp_id: "123456".into(),
+                vtc_id: "654321".into(),
             })
             .unwrap();
         store.update_notes("persistente Notiz".into()).unwrap();
@@ -548,7 +556,7 @@ mod tests {
         )
         .unwrap();
         assert!(migrated);
-        assert_eq!(config.version, 6);
+        assert_eq!(config.version, 7);
         assert_eq!(config.mode, ViewMode::Tablet);
         assert_eq!(config.settings.quiet_mode, true);
         assert_eq!(config.notes, "Meine Notiz");
@@ -583,10 +591,19 @@ mod tests {
         fs::write(&marker, b"existing Spotify installation marker").unwrap();
         let store = ConfigStore::open(path.clone()).unwrap();
         store.install_app("spotify").unwrap();
-        assert!(store.config().installed_apps.iter().any(|id| id == "spotify"));
+        assert!(
+            store
+                .config()
+                .installed_apps
+                .iter()
+                .any(|id| id == "spotify")
+        );
         let remaining = store.uninstall_app("spotify").unwrap();
         assert!(!remaining.iter().any(|id| id == "spotify"));
-        assert_eq!(fs::read(&marker).unwrap(), b"existing Spotify installation marker");
+        assert_eq!(
+            fs::read(&marker).unwrap(),
+            b"existing Spotify installation marker"
+        );
         let _ = fs::remove_dir_all(path.parent().unwrap().parent().unwrap());
     }
 

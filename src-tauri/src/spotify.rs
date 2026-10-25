@@ -10,8 +10,12 @@ pub struct LaunchGate(Mutex<Option<Instant>>);
 
 impl LaunchGate {
     pub fn try_begin(&self, now: Instant, cooldown: Duration) -> bool {
-        let Ok(mut last) = self.0.lock() else { return false; };
-        if last.is_some_and(|at| now.saturating_duration_since(at) < cooldown) { return false; }
+        let Ok(mut last) = self.0.lock() else {
+            return false;
+        };
+        if last.is_some_and(|at| now.saturating_duration_since(at) < cooldown) {
+            return false;
+        }
         *last = Some(now);
         true
     }
@@ -29,7 +33,7 @@ pub enum SpotifyLaunchError {
 impl SpotifyLaunchError {
     pub fn message(&self) -> String {
         match self {
-            Self::NotInstalledInPhone => "Spotify muss zuerst im lokalen Phone-App-Store installiert werden.".into(),
+            Self::NotInstalledInPhone => "Spotify muss zuerst im lokalen LegionOS-App-Store installiert werden.".into(),
             Self::UriHandlerUnavailable => "Windows hat keinen Spotify-URI-Handler gefunden. Installiere Spotify Desktop aus einer offiziellen Quelle oder repariere dessen URI-Zuordnung.".into(),
             Self::LaunchFailed(code) => format!("Spotify konnte über den Windows-URI-Handler nicht gestartet werden (Windows-Fehler {code}). Prüfe die Spotify-Installation.") ,
             #[cfg(not(windows))]
@@ -42,7 +46,10 @@ pub trait SpotifyUriLauncher {
     fn open_uri(&self, uri: &str) -> Result<(), SpotifyLaunchError>;
 }
 
-pub fn launch_spotify_with<L: SpotifyUriLauncher>(installed: bool, launcher: &L) -> Result<(), SpotifyLaunchError> {
+pub fn launch_spotify_with<L: SpotifyUriLauncher>(
+    installed: bool,
+    launcher: &L,
+) -> Result<(), SpotifyLaunchError> {
     if !installed {
         return Err(SpotifyLaunchError::NotInstalledInPhone);
     }
@@ -61,8 +68,14 @@ impl SpotifyUriLauncher for WindowsSpotifyUriLauncher {
             UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL},
         };
 
-        let operation: Vec<u16> = std::ffi::OsStr::new("open").encode_wide().chain(Some(0)).collect();
-        let uri: Vec<u16> = std::ffi::OsStr::new(uri).encode_wide().chain(Some(0)).collect();
+        let operation: Vec<u16> = std::ffi::OsStr::new("open")
+            .encode_wide()
+            .chain(Some(0))
+            .collect();
+        let uri: Vec<u16> = std::ffi::OsStr::new(uri)
+            .encode_wide()
+            .chain(Some(0))
+            .collect();
         let result = unsafe {
             ShellExecuteW(
                 std::ptr::null_mut::<c_void>() as HWND,
@@ -110,8 +123,14 @@ mod tests {
 
     #[test]
     fn only_launches_the_fixed_spotify_uri_after_phone_installation() {
-        let launcher = MockLauncher { result: Ok(()), opened: RefCell::new(Vec::new()) };
-        assert_eq!(launch_spotify_with(false, &launcher), Err(SpotifyLaunchError::NotInstalledInPhone));
+        let launcher = MockLauncher {
+            result: Ok(()),
+            opened: RefCell::new(Vec::new()),
+        };
+        assert_eq!(
+            launch_spotify_with(false, &launcher),
+            Err(SpotifyLaunchError::NotInstalledInPhone)
+        );
         assert!(launcher.opened.borrow().is_empty());
         assert_eq!(launch_spotify_with(true, &launcher), Ok(()));
         assert_eq!(&*launcher.opened.borrow(), &["spotify:"]);
@@ -119,11 +138,27 @@ mod tests {
 
     #[test]
     fn reports_missing_handler_and_launch_errors_without_panicking() {
-        let no_handler = MockLauncher { result: Err(SpotifyLaunchError::UriHandlerUnavailable), opened: RefCell::new(Vec::new()) };
-        assert_eq!(launch_spotify_with(true, &no_handler), Err(SpotifyLaunchError::UriHandlerUnavailable));
-        let failed = MockLauncher { result: Err(SpotifyLaunchError::LaunchFailed(5)), opened: RefCell::new(Vec::new()) };
-        assert_eq!(launch_spotify_with(true, &failed), Err(SpotifyLaunchError::LaunchFailed(5)));
-        assert!(SpotifyLaunchError::UriHandlerUnavailable.message().contains("Windows"));
+        let no_handler = MockLauncher {
+            result: Err(SpotifyLaunchError::UriHandlerUnavailable),
+            opened: RefCell::new(Vec::new()),
+        };
+        assert_eq!(
+            launch_spotify_with(true, &no_handler),
+            Err(SpotifyLaunchError::UriHandlerUnavailable)
+        );
+        let failed = MockLauncher {
+            result: Err(SpotifyLaunchError::LaunchFailed(5)),
+            opened: RefCell::new(Vec::new()),
+        };
+        assert_eq!(
+            launch_spotify_with(true, &failed),
+            Err(SpotifyLaunchError::LaunchFailed(5))
+        );
+        assert!(
+            SpotifyLaunchError::UriHandlerUnavailable
+                .message()
+                .contains("Windows")
+        );
     }
 
     #[test]
@@ -131,7 +166,13 @@ mod tests {
         let gate = LaunchGate::default();
         let start = Instant::now();
         assert!(gate.try_begin(start, Duration::from_millis(1800)));
-        assert!(!gate.try_begin(start + Duration::from_millis(500), Duration::from_millis(1800)));
-        assert!(gate.try_begin(start + Duration::from_millis(1800), Duration::from_millis(1800)));
+        assert!(!gate.try_begin(
+            start + Duration::from_millis(500),
+            Duration::from_millis(1800)
+        ));
+        assert!(gate.try_begin(
+            start + Duration::from_millis(1800),
+            Duration::from_millis(1800)
+        ));
     }
 }

@@ -22,8 +22,8 @@ function writeVersionFiles(root: string, version: string) {
     packages: { "": { version } },
   }));
   writeFileSync(path.join(root, "src-tauri", "tauri.conf.json"), JSON.stringify({ version }));
-  writeFileSync(path.join(root, "src-tauri", "Cargo.toml"), `[package]\nname = "phone"\nversion = "${version}"\n`);
-  writeFileSync(path.join(root, "src-tauri", "Cargo.lock"), `version = 4\n\n[[package]]\nname = "phone"\nversion = "${version}"\n`);
+  writeFileSync(path.join(root, "src-tauri", "Cargo.toml"), `[package]\nname = "legionos"\nversion = "${version}"\n`);
+  writeFileSync(path.join(root, "src-tauri", "Cargo.lock"), `version = 4\n\n[[package]]\nname = "legionos"\nversion = "${version}"\n`);
 }
 
 test("accepts a release tag matching all project manifests and lockfiles", () => {
