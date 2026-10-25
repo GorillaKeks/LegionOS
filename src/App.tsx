@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import "./App.css";
 import { appInfo, type AppId, type InternalAppId } from "./apps";
@@ -50,6 +51,11 @@ function App() {
   const [hotkeyInput, setHotkeyInput] = useState("Tab");
   const [hotkeyError, setHotkeyError] = useState<string | null>(null);
   const [hotkeySaving, setHotkeySaving] = useState(false);
+  const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
+  const [updaterMessage, setUpdaterMessage] = useState("Noch nicht geprüft.");
+  const [updaterBusy, setUpdaterBusy] = useState(false);
+  const [downloadedBytes, setDownloadedBytes] = useState(0);
+  const [downloadTotal, setDownloadTotal] = useState<number | null>(null);
   const [count, setCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [canSave, setCanSave] = useState(true);
@@ -456,6 +462,58 @@ function App() {
     }
   };
 
+  const checkForUpdates = async () => {
+    if (!isTauri()) {
+      setUpdaterMessage("Die Updateprüfung ist nur in der installierten LegionOS-Desktop-App verfügbar.");
+      return;
+    }
+    setUpdaterBusy(true);
+    setUpdaterMessage("Suche nach Updates …");
+    setDownloadedBytes(0);
+    setDownloadTotal(null);
+    if (availableUpdate) await availableUpdate.close().catch(() => undefined);
+    setAvailableUpdate(null);
+    try {
+      const update = await check({ timeout: 20_000 });
+      if (!update) {
+        setUpdaterMessage("LegionOS ist auf dem neuesten Stand.");
+        return;
+      }
+      setAvailableUpdate(update);
+      setUpdaterMessage(`Version ${update.version} ist verfügbar.`);
+    } catch (error) {
+      setUpdaterMessage(`Updateprüfung fehlgeschlagen: ${String(error)}`);
+    } finally {
+      setUpdaterBusy(false);
+    }
+  };
+
+  const installAvailableUpdate = async () => {
+    if (!availableUpdate || updaterBusy) return;
+    const notes = availableUpdate.body?.trim();
+    const detail = notes ? `\n\nVersionshinweise:\n${notes}` : "\n\nFür diese Version sind keine Versionshinweise hinterlegt.";
+    if (!window.confirm(`LegionOS ${availableUpdate.version} herunterladen und installieren?${detail}`)) return;
+    setUpdaterBusy(true);
+    setUpdaterMessage("Update wird heruntergeladen …");
+    setDownloadedBytes(0);
+    setDownloadTotal(null);
+    try {
+      await availableUpdate.downloadAndInstall((event: DownloadEvent) => {
+        if (event.event === "Started") {
+          setDownloadTotal(event.data.contentLength ?? null);
+          setUpdaterMessage("Update wird heruntergeladen …");
+        } else if (event.event === "Progress") {
+          setDownloadedBytes((bytes) => bytes + event.data.chunkLength);
+        } else if (event.event === "Finished") {
+          setUpdaterMessage("Download abgeschlossen. Installation wird gestartet …");
+        }
+      });
+    } catch (error) {
+      setUpdaterMessage(`Installation fehlgeschlagen: ${String(error)}`);
+      setUpdaterBusy(false);
+    }
+  };
+
   if (!loaded) {
     return <main className="boot-screen"><span className="boot-mark"/><span>Phone wird vorbereitet …</span></main>;
   }
@@ -581,6 +639,16 @@ function App() {
               </div>{modeChanging && <span className="device-mode-status" role="status">Geräteformat wird geändert …</span>}</div>
               <div className="settings-group"><div className="settings-row"><div className="settings-row-icon settings-cyan"><Icon name="moon" size={17}/></div><div className="settings-row-copy"><strong>Ruhemodus</strong><span>Gespeicherte Beispieloption</span></div><Toggle checked={settings.quietMode} onChange={(checked) => changeSetting({ quietMode: checked })} label="Ruhemodus"/></div>
                 <div className="settings-row"><div className="settings-row-icon settings-violet"><Icon name="sun" size={17}/></div><div className="settings-row-copy"><strong>Cyan-Akzent</strong><span>Leuchtende Akzente im Interface</span></div><Toggle checked={settings.accentOn} onChange={(checked) => changeSetting({ accentOn: checked })} label="Cyan-Akzent"/></div></div>
+              <section className="updater-settings" aria-labelledby="updater-heading">
+                <div className="updater-heading"><div><span className="section-kicker">LEGIONOS</span><h3 id="updater-heading">Software-Updates</h3></div><span className="updater-lock" title="Signaturprüfung aktiv"><Icon name="check" size={15}/> SIGNIERT</span></div>
+                <p className="updater-description">Prüfe manuell auf eine neue Version. Updates werden vor der Installation kryptografisch geprüft. Automatische Updates verwenden derzeit NSIS; MSI-Installationen sind noch nicht getestet.</p>
+                <div className="updater-actions"><button className="updater-button" type="button" onClick={() => void checkForUpdates()} disabled={updaterBusy}>{updaterBusy && !availableUpdate ? "Prüfe …" : "Nach Updates suchen"}</button>
+                  {availableUpdate && <button className="updater-button updater-install" type="button" onClick={() => void installAvailableUpdate()} disabled={updaterBusy}>{updaterBusy ? "Wird installiert …" : `Version ${availableUpdate.version} installieren`}</button>}</div>
+                {availableUpdate?.body && <p className="updater-notes"><strong>Versionshinweise</strong><br/>{availableUpdate.body}</p>}
+                {downloadTotal !== null && downloadTotal > 0 && <div className="updater-progress"><progress max={downloadTotal} value={Math.min(downloadedBytes, downloadTotal)}/><span>{Math.round(Math.min(downloadedBytes / downloadTotal, 1) * 100)} %</span></div>}
+                {updaterBusy && availableUpdate && (downloadTotal === null || downloadTotal <= 0) && downloadedBytes > 0 && <p className="updater-bytes">{(downloadedBytes / 1_048_576).toFixed(1)} MB heruntergeladen</p>}
+                <p className="updater-status" role="status" aria-live="polite">{updaterMessage}</p>
+              </section>
               <div className="hotkey-settings"><label htmlFor="overlay-hotkey">GLOBALER OVERLAY-HOTKEY</label><div className="hotkey-input-row"><input id="overlay-hotkey" value={hotkeyInput} onChange={(event) => setHotkeyInput(event.currentTarget.value)} placeholder="Tab" aria-describedby="hotkey-help"/><button onClick={() => void saveHotkey()} disabled={hotkeySaving || hotkeyInput.trim() === hotkey}>{hotkeySaving ? "Wird gesetzt …" : "Übernehmen"}</button></div><p id="hotkey-help">Aktuell: <strong>{hotkey}</strong>. Standard: <code>Tab</code> (einzelne Tab-Taste). Kombinationen wie <code>ctrl+shift+space</code> bleiben verfügbar.</p>{hotkeyError && <p className="hotkey-error" role="alert">{hotkeyError}</p>}<p className="ephemeral-note"><span className="note-dot"/> Der Hotkey schaltet das Overlay um. Schließen blendet es aus; „Phone beenden“ beendet die Anwendung.</p><button className="exit-phone-button" onClick={() => void invoke("exit_phone")}>Phone beenden</button></div>
               <p className="ephemeral-note"><span className="note-dot"/> {persistence === "error" ? "Speichern fehlgeschlagen — Änderungen sind noch nicht gesichert" : persistence === "memory" ? "Nur in dieser Browser-Vorschau verfügbar" : "Wird automatisch auf diesem Gerät gespeichert"}</p></div>}
             {shownWindow.appId === "notes" && <div className="notes-view"><div className="window-section-heading"><span className="section-kicker">SCHNELL NOTIERT</span><h2>Was geht dir <span>durch den Kopf?</span></h2><p>Deine Notiz wird automatisch gespeichert.</p></div><label className="note-label" htmlFor="quick-note">MEINE NOTIZ</label><textarea id="quick-note" value={note} onChange={(event) => setNote(event.currentTarget.value)} onBlur={() => { if (isTauri() && canSaveRef.current && note !== lastSavedNote.current) { const value = note; void enqueueSave(async () => { await invoke("save_notes", { notes: value }); lastSavedNote.current = value; }); } }} placeholder="Ein Gedanke, eine Idee, eine Erinnerung …"/><div className="note-footer"><span>{note.length} Zeichen</span><span className={`save-indicator save-${persistence}`}><span className="status-dot"/> {persistence === "saving" ? "Wird gespeichert" : persistence === "error" ? "Speicherproblem" : persistence === "memory" ? "Nur in dieser Vorschau" : "Gespeichert"}</span></div></div>}

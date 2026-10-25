@@ -51,22 +51,15 @@ jobs:
 
       - name: Build Windows installers
         run: npm run build:windows
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      - name: Verify installer aliases
+      - name: Verify signed updater artifacts
         shell: pwsh
-        run: |
-          $installers = @(
-            "src-tauri/target/release/bundle/nsis/LegionOS_x64-setup.exe",
-            "src-tauri/target/release/bundle/msi/LegionOS_x64_en-US.msi"
-          )
-          foreach ($installer in $installers) {
-            if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
-              throw "Expected installer is missing: $installer"
-            }
-            if ((Get-Item -LiteralPath $installer).Length -le 0) {
-              throw "Expected installer is empty: $installer"
-            }
-          }
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node tools/verify-release-assets.mjs src-tauri/target/release/bundle "$env:RELEASE_TAG"
 
       - name: Upload verified installer artifact
         uses: actions/upload-artifact@v7
@@ -74,12 +67,15 @@ jobs:
           name: windows-installers
           path: |
             src-tauri/target/release/bundle/nsis/LegionOS_x64-setup.exe
+            src-tauri/target/release/bundle/nsis/LegionOS_x64-setup.exe.sig
             src-tauri/target/release/bundle/msi/LegionOS_x64_en-US.msi
+            src-tauri/target/release/bundle/msi/LegionOS_x64_en-US.msi.sig
+            src-tauri/target/release/bundle/latest.json
           if-no-files-found: error
           retention-days: 7
 
   release:
-    name: Publish GitHub Release
+    name: Prepare GitHub Release draft
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -99,9 +95,11 @@ jobs:
 
       - name: Verify downloaded assets
         shell: bash
-        run: node tools/verify-release-assets.mjs installers
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node tools/verify-release-assets.mjs installers "$RELEASE_TAG"
 
-      - name: Create draft release with both installers
+      - name: Create draft release with signed updater assets
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -110,22 +108,24 @@ jobs:
           args=("$RELEASE_TAG" \
             installers/nsis/LegionOS_x64-setup.exe \
             installers/msi/LegionOS_x64_en-US.msi \
+            installers/nsis/LegionOS_x64-setup.exe.sig \
+            installers/msi/LegionOS_x64_en-US.msi.sig \
+            installers/latest.json \
             --draft --generate-notes --verify-tag --title "$RELEASE_TAG")
           if [[ "$RELEASE_TAG" == *-* ]]; then
             args+=(--prerelease)
           fi
           gh release create "${args[@]}"
 
-      - name: Verify release assets and publish
+      - name: Verify draft release assets
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          expected="$(printf '%s\n' LegionOS_x64-setup.exe LegionOS_x64_en-US.msi | sort)"
+          expected="$(printf '%s\n' LegionOS_x64-setup.exe LegionOS_x64-setup.exe.sig LegionOS_x64_en-US.msi LegionOS_x64_en-US.msi.sig latest.json | sort)"
           actual="$(gh release view "$RELEASE_TAG" --json assets --jq '[.assets[].name] | sort | .[]')"
           if [[ "$actual" != "$expected" ]]; then
             printf 'Release assets did not match expected files.\nExpected:\n%s\nActual:\n%s\n' "$expected" "$actual" >&2
             exit 1
           fi
-          gh release edit "$RELEASE_TAG" --draft=false --verify-tag

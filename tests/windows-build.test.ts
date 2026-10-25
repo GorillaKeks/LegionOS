@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { findFreshInstaller, installerDefinitions, snapshotInstallerFiles } from "../tools/build-windows.mjs";
+import { findFreshInstaller, findFreshSignature, installerDefinitions, snapshotInstallerFiles } from "../tools/build-windows.mjs";
 
 function withTempDirectory(run: (directory: string) => void) {
   const directory = mkdtempSync(path.join(os.tmpdir(), "legionos-installer-test-"));
@@ -63,5 +63,34 @@ test("fails clearly when a fresh expected installer was not produced", () => {
       () => findFreshInstaller(msi, installerDefinitions[1], beforeBuild),
       /No fresh x64 MSI installer matching/,
     );
+  });
+});
+
+test("requires a new non-empty Minisign signature next to each fresh installer", () => {
+  withTempDirectory((root) => {
+    const nsis = path.join(root, "nsis");
+    mkdirSync(nsis);
+    const installer = path.join(nsis, "Phone_1.0.1_x64-setup.exe");
+    const signaturePath = `${installer}.sig`;
+    writeFileSync(installer, "new-installer");
+    const beforeBuild = snapshotInstallerFiles(root);
+    writeFileSync(signaturePath, "untrusted comment: signature from minisign secret key\nYWJjZGVm\n");
+    assert.equal(findFreshSignature(installer, beforeBuild), signaturePath);
+  });
+});
+
+test("rejects a missing, unchanged, or malformed updater signature", () => {
+  withTempDirectory((root) => {
+    const installer = path.join(root, "Phone_1.0.1_x64-setup.exe");
+    writeFileSync(installer, "installer");
+    const beforeBuild = snapshotInstallerFiles(root);
+    assert.throws(() => findFreshSignature(installer, beforeBuild), /signature is missing/);
+    const signaturePath = `${installer}.sig`;
+    writeFileSync(signaturePath, "untrusted comment: stale signature\nYWJjZGVm\n");
+    const afterSignature = snapshotInstallerFiles(root);
+    assert.throws(() => findFreshSignature(installer, afterSignature), /signature is missing/);
+    const beforeMalformed = new Map(beforeBuild);
+    writeFileSync(signaturePath, "not a minisign signature\n");
+    assert.throws(() => findFreshSignature(installer, beforeMalformed), /empty or invalid/);
   });
 });
