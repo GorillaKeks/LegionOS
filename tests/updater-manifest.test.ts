@@ -13,6 +13,11 @@ test("creates a versioned Windows x64 manifest with the NSIS download and signat
   assert.equal(manifest.platforms["windows-x86_64"].signature, signature.trimEnd());
 });
 
+test("normalizes a UTF-8 BOM and Windows line endings in generated signatures", () => {
+  const manifest = createLatestManifest("1.0.1", `\uFEFF${signature.replace(/\n/g, "\r\n")}`);
+  assert.equal(manifest.platforms["windows-x86_64"].signature, signature.trimEnd());
+});
+
 test("validates the release version, platform, NSIS signature, and version-bound URL", () => {
   const manifest = createLatestManifest("1.0.1", signature);
   assert.equal(validateLatestManifest(manifest, { expectedVersion: "1.0.1", expectedSignature: signature }), manifest);

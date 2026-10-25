@@ -88,11 +88,28 @@ export function findFreshSignature(installerPath, snapshot) {
   if (!existsSync(signaturePath) || !changedSinceSnapshot(signaturePath, snapshot)) {
     throw new Error(`Fresh updater signature is missing for ${path.basename(installerPath)}.`);
   }
-  const signature = readFileSync(signaturePath, "utf8");
-  if (!signature.startsWith("untrusted comment: ") || signature.trim().split(/\r?\n/).length < 2) {
-    throw new Error(`Updater signature is empty or invalid: ${signaturePath}`);
+  const bytes = readFileSync(signaturePath);
+  if (bytes.length === 0) {
+    throw new Error(`Updater signature file is empty: ${signaturePath} (0 bytes).`);
   }
-  if (statSync(signaturePath).size === 0) throw new Error(`Updater signature is empty: ${signaturePath}`);
+
+  let signature = bytes.toString("utf8");
+  const hasUtf8Bom = signature.charCodeAt(0) === 0xfeff;
+  if (hasUtf8Bom) signature = signature.slice(1);
+  signature = signature.replace(/\r\n/g, "\n").trimEnd();
+
+  const lines = signature.split("\n");
+  const hasExpectedPrefix = lines[0]?.startsWith("untrusted comment: ") ?? false;
+  if (!hasExpectedPrefix || lines.length < 2 || lines[1]?.trim().length === 0) {
+    // Minisign signatures are public verification data. Log only structural metadata here,
+    // never the signature payload or any signing-key material.
+    throw new Error(
+      `Updater signature has an invalid format: ${signaturePath} `
+      + `(bytes=${bytes.length}, utf8Bom=${hasUtf8Bom}, lines=${lines.length}, `
+      + `expectedPrefix=${hasExpectedPrefix}, payloadLinePresent=${Boolean(lines[1]?.trim())}). `
+      + "Expected a non-empty Minisign envelope; signature contents were not logged.",
+    );
+  }
   return signaturePath;
 }
 

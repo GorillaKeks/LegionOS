@@ -79,6 +79,48 @@ test("requires a new non-empty Minisign signature next to each fresh installer",
   });
 });
 
+test("accepts a UTF-8 BOM and Windows line endings without logging signature data", () => {
+  withTempDirectory((root) => {
+    const installer = path.join(root, "Phone_1.0.1_x64-setup.exe");
+    const signaturePath = `${installer}.sig`;
+    writeFileSync(installer, "installer");
+    const beforeBuild = snapshotInstallerFiles(root);
+    writeFileSync(signaturePath, "\uFEFFuntrusted comment: signature from tauri secret key\r\nYWJjZGVm\r\n");
+
+    assert.equal(findFreshSignature(installer, beforeBuild), signaturePath);
+  });
+});
+
+test("reports safe structural diagnostics for an empty signature file", () => {
+  withTempDirectory((root) => {
+    const installer = path.join(root, "Phone_1.0.1_x64-setup.exe");
+    const signaturePath = `${installer}.sig`;
+    writeFileSync(installer, "installer");
+    const beforeBuild = snapshotInstallerFiles(root);
+    writeFileSync(signaturePath, "");
+
+    assert.throws(() => findFreshSignature(installer, beforeBuild), /signature file is empty.*0 bytes/);
+  });
+});
+
+test("reports format metadata without including malformed signature contents", () => {
+  withTempDirectory((root) => {
+    const installer = path.join(root, "Phone_1.0.1_x64-setup.exe");
+    const signaturePath = `${installer}.sig`;
+    writeFileSync(installer, "installer");
+    const beforeBuild = snapshotInstallerFiles(root);
+    const signaturePayload = "this must never appear in an error";
+    writeFileSync(signaturePath, signaturePayload);
+
+    assert.throws(() => findFreshSignature(installer, beforeBuild), (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /bytes=\d+, utf8Bom=false, lines=1, expectedPrefix=false/);
+      assert.doesNotMatch(error.message, new RegExp(signaturePayload));
+      return true;
+    });
+  });
+});
+
 test("rejects a missing, unchanged, or malformed updater signature", () => {
   withTempDirectory((root) => {
     const installer = path.join(root, "Phone_1.0.1_x64-setup.exe");
@@ -91,6 +133,6 @@ test("rejects a missing, unchanged, or malformed updater signature", () => {
     assert.throws(() => findFreshSignature(installer, afterSignature), /signature is missing/);
     const beforeMalformed = new Map(beforeBuild);
     writeFileSync(signaturePath, "not a minisign signature\n");
-    assert.throws(() => findFreshSignature(installer, beforeMalformed), /empty or invalid/);
+    assert.throws(() => findFreshSignature(installer, beforeMalformed), /invalid format/);
   });
 });

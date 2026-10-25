@@ -8,8 +8,10 @@ const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.
 
 function normalizeSignature(signature) {
   if (typeof signature !== "string" || signature.trim().length === 0) throw new Error("The NSIS updater signature is missing.");
-  const normalized = signature.replace(/\r\n/g, "\n").trimEnd();
-  if (!normalized.startsWith("untrusted comment: ") || normalized.split("\n").length < 2) {
+  const withoutBom = signature.charCodeAt(0) === 0xfeff ? signature.slice(1) : signature;
+  const normalized = withoutBom.replace(/\r\n/g, "\n").trimEnd();
+  const lines = normalized.split("\n");
+  if (!lines[0]?.startsWith("untrusted comment: ") || lines.length < 2 || !lines[1]?.trim()) {
     throw new Error("The NSIS .sig file does not contain a valid Minisign signature payload.");
   }
   return normalized;
