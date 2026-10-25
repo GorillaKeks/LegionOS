@@ -26,9 +26,6 @@ pub fn parse_shortcut(value: &str) -> Result<HotkeyBinding, String> {
     }
     let shortcut = Shortcut::from_str(value)
         .map_err(|error| format!("Ungültige Tastenkombination: {error}"))?;
-    if shortcut.mods.is_empty() && !value.eq_ignore_ascii_case("tab") {
-        return Err("Als einzelne Taste wird nur Tab unterstützt. Sonst bitte Strg, Alt, Umschalt oder die Windows-Taste mit einer Taste kombinieren.".into());
-    }
     Ok(HotkeyBinding::Shortcut(shortcut))
 }
 
@@ -61,8 +58,16 @@ mod tests {
     }
 
     #[test]
-    fn rejects_bare_keys_and_malformed_hotkeys() {
-        assert!(parse_shortcut("Space").is_err());
+    fn accepts_single_keys_and_rejects_malformed_hotkeys() {
+        let HotkeyBinding::Shortcut(letter) = parse_shortcut("A").unwrap() else {
+            panic!("a single letter must be accepted by the global shortcut API");
+        };
+        assert!(letter.mods.is_empty());
+        assert_eq!(letter.to_string(), "KeyA");
+        let HotkeyBinding::Shortcut(function_key) = parse_shortcut("F8").unwrap() else {
+            panic!("a single function key must be accepted by the global shortcut API");
+        };
+        assert!(function_key.mods.is_empty());
         assert!(parse_shortcut("ctrl++space").is_err());
         assert!(parse_shortcut("ctrl+shift+unknown-key").is_err());
     }

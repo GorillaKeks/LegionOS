@@ -1,0 +1,9 @@
+{
+  "id": "radio",
+  "name": "Radio",
+  "version": "1.0.0",
+  "description": "Discover and play internet radio stations in LegionOS.",
+  "icon": "radio",
+  "type": "internal",
+  "entry": "radio"
+}

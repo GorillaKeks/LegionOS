@@ -2,12 +2,13 @@ mod app_catalog;
 mod config;
 mod hotkey;
 mod right_control;
+mod radio;
 mod roadwatch;
-mod spotify;
 mod window_control;
 
 use app_catalog::{AppStoreSnapshot, scan_apps_dir, set_installed_ids, validate_installable};
 use config::{ConfigSnapshot, ConfigStore, DEFAULT_OVERLAY_HOTKEY, UserSettings, ViewMode};
+use radio::{radio_resolve_stream, radio_search_stations};
 use std::{
     sync::Mutex,
     time::{Duration, Instant},
@@ -17,34 +18,6 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 struct ActiveHotkey(Mutex<Option<String>>);
 struct ToggleDebounce(Mutex<Option<Instant>>);
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-enum SpotifyLaunchResult {
-    Started,
-    AlreadyRequested,
-}
-
-#[tauri::command]
-fn launch_spotify(
-    store: State<'_, ConfigStore>,
-    gate: State<'_, spotify::LaunchGate>,
-) -> Result<SpotifyLaunchResult, String> {
-    if !store
-        .config()
-        .installed_apps
-        .iter()
-        .any(|id| id == "spotify")
-    {
-        return Err(spotify::SpotifyLaunchError::NotInstalledInPhone.message());
-    }
-    if !gate.try_begin(Instant::now(), Duration::from_millis(1800)) {
-        return Ok(SpotifyLaunchResult::AlreadyRequested);
-    }
-    spotify::launch_spotify_with(true, &spotify::WindowsSpotifyUriLauncher)
-        .map(|()| SpotifyLaunchResult::Started)
-        .map_err(|error| error.message())
-}
-
 #[tauri::command]
 fn load_phone_config(store: State<'_, ConfigStore>) -> ConfigSnapshot {
     store.snapshot()
@@ -285,7 +258,8 @@ pub fn run() {
                 load_local_apps,
                 install_local_app,
                 uninstall_local_app,
-                launch_spotify,
+                radio_search_stations,
+                radio_resolve_stream,
                 set_view_mode,
                 set_overlay_hotkey,
                 exit_phone
@@ -297,7 +271,6 @@ pub fn run() {
                 app.manage(store);
                 app.manage(ActiveHotkey(Mutex::new(None)));
                 app.manage(ToggleDebounce(Mutex::new(None)));
-                app.manage(spotify::LaunchGate::default());
 
                 app.handle().plugin(
                     tauri_plugin_global_shortcut::Builder::new()

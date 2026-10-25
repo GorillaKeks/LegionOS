@@ -14,8 +14,9 @@ const SUPPORTED: &[(&str, &str, &str)] = &[
     ("focus", "focus", "internal"),
     ("snake", "snake", "internal"),
     ("pong", "pong", "internal"),
-    ("spotify", "spotify", "internal"),
+    ("space-invaders", "space-invaders", "internal"),
     ("roadwatch", "roadwatch", "internal"),
+    ("radio", "radio", "internal"),
 ];
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -267,7 +268,7 @@ fn validate_manifest(manifest: &AppManifest) -> Result<(), String> {
     if !bounded_text(&manifest.description, 1, 240) {
         return Err("Beschreibung muss 1 bis 240 Zeichen lang sein.".into());
     }
-    if !["settings", "note", "spark", "snake", "pong", "roadwatch"]
+    if !["settings", "note", "spark", "snake", "pong", "invaders", "roadwatch", "radio"]
         .contains(&manifest.icon.as_str())
     {
         return Err("Dieses Icon wird nicht unterstützt.".into());
@@ -392,17 +393,31 @@ mod tests {
     }
 
     #[test]
-    fn accepts_registered_spotify_manifest_and_tracks_install_state() {
-        let root = root();
-        let folder = root.join("spotify");
-        fs::create_dir_all(&folder).unwrap();
-        fs::write(folder.join("manifest.json"), r#"{"id":"spotify","name":"Spotify","version":"1.0.0","description":"Starte Spotify Desktop aus LΣGIΦN ΦS","icon":"spark","type":"internal","entry":"spotify"}"#).unwrap();
-        let available = scan_apps_dir(&root, &[]).unwrap();
-        assert_eq!(available.apps[0].manifest.as_ref().unwrap().id, "spotify");
-        assert!(!available.apps[0].installed);
-        let installed = scan_apps_dir(&root, &["spotify".into()]).unwrap();
-        assert!(installed.apps[0].installed);
-        fs::remove_dir_all(root).unwrap();
+    fn accepts_registered_space_invaders_manifest_and_icon() {
+        let manifest = AppManifest {
+            id: "space-invaders".into(),
+            name: "Space Invaders".into(),
+            version: "1.0.0".into(),
+            description: "Defend the galaxy in a retro arcade shooter".into(),
+            icon: "invaders".into(),
+            app_type: "internal".into(),
+            entry: "space-invaders".into(),
+        };
+        assert!(validate_manifest(&manifest).is_ok());
+    }
+
+    #[test]
+    fn accepts_registered_radio_manifest_and_icon() {
+        let manifest = AppManifest {
+            id: "radio".into(),
+            name: "Radio".into(),
+            version: "1.0.0".into(),
+            description: "Internet radio stations".into(),
+            icon: "radio".into(),
+            app_type: "internal".into(),
+            entry: "radio".into(),
+        };
+        assert!(validate_manifest(&manifest).is_ok());
     }
 
     #[test]

@@ -18,7 +18,7 @@ Jeder direkte Unterordner enthält genau eine `manifest.json` mit diesen Feldern
 }
 ```
 
-IDs, Typen und Einstiegspunkte müssen im Programm registriert sein. Interne Apps verwenden fest eingebundene LegionOS-Komponenten; Manifestwerte können keine Programme oder Pfade vorgeben. Unterstützte Icons sind `settings`, `note`, `spark`, `snake`, `pong` und `roadwatch`. Es werden keine Skripte oder beliebigen Einstiegspfade aus Manifesten geladen.
+IDs, Typen und Einstiegspunkte müssen im Programm registriert sein. Interne Apps verwenden fest eingebundene LegionOS-Komponenten; Manifestwerte können keine Programme oder Pfade vorgeben. Unterstützte Icons sind `settings`, `note`, `spark`, `snake`, `pong`, `invaders`, `roadwatch` und `radio`. Es werden keine Skripte oder beliebigen Einstiegspfade aus Manifesten geladen.
 
 Manifeste müssen gültiges UTF-8-JSON sein und höchstens 64 KiB umfassen. Unbekannte Felder, ungültige oder doppelte IDs, ungültige SemVer-Versionen und nicht unterstützte Typen/Einstiegspunkte werden abgewiesen. Der Katalog zeigt solche Einträge mit einer Fehlermeldung, ohne den Start von LegionOS zu verhindern.
 
@@ -32,13 +32,16 @@ Installierte App-IDs werden in `phone.json` unter `installedApps` gespeichert. N
 - `focus`: Fokus
 - `snake`: Snake Arcade (zunächst nicht installiert)
 - `pong`: Pong gegen die LegionOS-KI (zunächst nicht installiert)
-- `spotify`: Spotify Desktop (zunächst nicht installiert)
+- `space-invaders`: Space Invaders Retro-Arcade-Shooter (zunächst nicht installiert)
 - `roadwatch`: RoadWatch Live-VTC-Übersicht (zunächst nicht installiert)
+- `radio`: Internetradio-Verzeichnis und Player (zunächst nicht installiert)
 
 Snake verwendet die fest registrierte interne Komponente `apps/snake/SnakeApp.tsx`; die Spielregeln liegen in `apps/snake/game.ts`. Der persönliche Rekord wird im lokalen WebView-Speicher unter `legion-os.snake.high-score.v1` gespeichert.
 
 Pong verwendet die fest registrierte interne Komponente `apps/pong/PongApp.tsx`; Bewegung, Kollisionen und Punktestand liegen in `apps/pong/game.ts`. Der persönliche Rekord wird lokal unter `legion-os.pong.best-score.v1` gespeichert.
 
-Spotify verwendet einen fest registrierten nativen Windows-Launcher für den URI `spotify:`. Es läuft in einem eigenen nativen Fenster und wird nicht als internes LegionOS-Fenster verwaltet. Die Deinstallation entfernt nur `spotify` aus `phone.json`; sie deinstalliert nicht die Spotify-Anwendung.
+Space Invaders verwendet die fest registrierte interne Komponente `apps/space-invaders/SpaceInvadersApp.tsx`; Bewegung, Treffer, Gegnerformation, Bosskampf und Spielzustand liegen in `apps/space-invaders/game.ts`. Der persönliche Rekord wird lokal unter `legion-os.space-invaders.best-score.v1` gespeichert.
 
 RoadWatch ist als interne LegionOS-Komponente eingebettet. Die TruckersMP-ID und VTC-ID werden in den LegionOS-Einstellungen gespeichert und für die TruckersMP- und ETS2Map-API verwendet. Die Datenabfrage läuft über Rust; das RoadWatch-Fenster bleibt ein internes React-Fenster und benötigt keine separate RoadWatch-Installation.
+
+Radio fragt das Radio-Browser-Verzeichnis über einen Rust-Client mit aussagekräftigem User-Agent ab, löst die Wiedergabe über den Sender-Klickzähler auf und spielt den zurückgegebenen HTTP(S)-Stream in einem dauerhaft gemounteten LegionOS-Audioplayer ab. Daher läuft Musik auch bei minimiertem oder inaktivem Radio-Fenster weiter; beim Schließen oder Deinstallieren von Radio wird die Wiedergabe beendet. Verfügbarkeit und unterstützte Formate hängen vom Sender ab; eine zusätzliche Radio-Software oder ein Konto ist nicht erforderlich.

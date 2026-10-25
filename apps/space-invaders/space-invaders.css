@@ -1,0 +1,27 @@
+.space-invaders-app { display: grid; gap: 12px; }
+.invaders-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.invaders-kicker { color: #718b9a; font-size: 8px; font-weight: 700; letter-spacing: 1.4px; }
+.invaders-heading h2 { margin: 2px 0 0; color: #e8f2f7; font: 600 18px Manrope,sans-serif; }
+.invaders-heading h2 span { color: #63deef; }
+.invaders-scores { display: flex; gap: 12px; }
+.invaders-scores div { display: grid; gap: 2px; text-align: right; }
+.invaders-scores small { color: #728392; font-size: 7px; font-weight: 700; letter-spacing: .8px; }
+.invaders-scores strong { color: #bdeff4; font: 700 15px Manrope,sans-serif; font-variant-numeric: tabular-nums; }
+.invaders-boss-health { display: flex; align-items: center; gap: 9px; color: #bea8ef; font-size: 8px; font-weight: 700; letter-spacing: .7px; }
+.invaders-boss-health progress { min-width: 0; flex: 1; height: 6px; accent-color: #aa82fa; }
+.invaders-boss-health strong { color: #e0d3fa; font-size: 8px; font-variant-numeric: tabular-nums; }
+.invaders-field { position: relative; width: 100%; overflow: hidden; border: 1px solid #263a46; border-radius: 10px; background: #08111a; box-shadow: inset 0 0 28px rgba(22,91,111,.13); }
+.invaders-field canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; }
+.invaders-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; padding: 16px; background: rgba(5,11,17,.78); text-align: center; backdrop-filter: blur(2px); }
+.invaders-overlay strong { color: #eaf5fa; font: 600 18px Manrope,sans-serif; }
+.invaders-overlay span { max-width: 320px; color: #8ea0ad; font-size: 10px; line-height: 1.5; }
+.invaders-overlay button,.invaders-actions button,.invaders-dpad button { min-height: 30px; padding: 6px 11px; border: 1px solid rgba(92,216,236,.28); border-radius: 7px; color: #a3e8f0; background: rgba(59,154,173,.12); font: 600 9px 'DM Sans',sans-serif; cursor: pointer; }
+.invaders-overlay button:hover,.invaders-actions button:hover:not(:disabled),.invaders-dpad button:hover { background: rgba(59,154,173,.24); }
+.invaders-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.invaders-controls small { color: #71818e; font-size: 8px; text-align: center; }
+.invaders-dpad,.invaders-actions { display: flex; align-items: center; gap: 5px; }
+.invaders-dpad button { min-width: 32px; touch-action: none; user-select: none; }
+.invaders-dpad button:last-child { min-width: 46px; }
+.invaders-actions button { padding-inline: 8px; }
+.invaders-actions button:disabled { opacity: .45; cursor: default; }
+@media (max-width: 520px) { .invaders-controls { flex-wrap: wrap; justify-content: center; }.invaders-controls small { order: 2; flex-basis: 100%; }.invaders-dpad button { min-height: 36px; }.invaders-heading h2 { font-size: 15px; } }

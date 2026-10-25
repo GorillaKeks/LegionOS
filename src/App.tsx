@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import packageMetadata from "../package.json";
 import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import "./App.css";
@@ -8,7 +9,10 @@ import { getAppUsageState, selectInstalledApps, selectAvailableApps, selectInsta
 import FocusApp from "./FocusApp";
 import SnakeApp from "../apps/snake/SnakeApp";
 import PongApp from "../apps/pong/PongApp";
+import SpaceInvadersApp from "../apps/space-invaders/SpaceInvadersApp";
 import RoadWatchApp from "../apps/roadwatch/RoadWatchApp";
+import RadioApp from "../apps/radio/RadioApp";
+import { RadioPlaybackProvider, useRadioPlayback } from "../apps/radio/RadioPlayback";
 import { initialWindowState, selectOpenAppIcons, windowReducer } from "./windowManager";
 import type { WindowPosition, WindowSize } from "./windowManager";
 import { getGreeting } from "./greeting";
@@ -25,7 +29,7 @@ type WindowDrag =
   | { kind: "resize"; windowId: string; pointerId: number; edge: ResizeEdge; startX: number; startY: number; startWidth: number; startHeight: number; pointerX: number; pointerY: number };
 const defaultSettings: UserSettings = { quietMode: false, accentOn: true, truckersmpId: "", vtcId: "", language: "en" };
 
-type IconName = "settings" | "note" | "spark" | "snake" | "pong" | "roadwatch" | "chevron" | "close" | "minus" | "home" | "grid" | "sun" | "sunset" | "moon" | "check";
+type IconName = "settings" | "note" | "spark" | "snake" | "pong" | "invaders" | "roadwatch" | "radio" | "chevron" | "close" | "minus" | "home" | "grid" | "sun" | "sunset" | "moon" | "check" | "power";
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
@@ -34,16 +38,17 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
     note: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></>,
     spark: <><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="m19 16 .9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9L19 16Z"/></>,
     chevron: <path d="m9 18 6-6-6-6"/>, close: <path d="m18 6-12 12M6 6l12 12"/>,
-    minus: <path d="M5 12h14"/>, snake: <><path d="M5 7h7a3 3 0 0 1 3 3v4a3 3 0 0 0 3 3h1"/><path d="M5 7v4a3 3 0 0 0 3 3h4a3 3 0 0 1 3 3v0"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="19" cy="17" r="1" fill="currentColor"/></>, pong: <><path d="M5 5v5M5 14v5M19 5v5M19 14v5"/><path d="M12 3v18" strokeDasharray="2 3"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></>, roadwatch: <><path d="m8 3-4 18M16 3l4 18"/><path d="M12 4v3m0 4v3m0 4v3" strokeDasharray="2 1"/><path d="M12 5a3 3 0 0 1 3 3c0 2-3 5-3 5S9 10 9 8a3 3 0 0 1 3-3Z"/><circle cx="12" cy="8" r=".8" fill="currentColor" stroke="none"/></>, home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-7h6v7"/></>,
+    minus: <path d="M5 12h14"/>, snake: <><path d="M5 7h7a3 3 0 0 1 3 3v4a3 3 0 0 0 3 3h1"/><path d="M5 7v4a3 3 0 0 0 3 3h4a3 3 0 0 1 3 3v0"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="19" cy="17" r="1" fill="currentColor"/></>, pong: <><path d="M5 5v5M5 14v5M19 5v5M19 14v5"/><path d="M12 3v18" strokeDasharray="2 3"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></>, invaders: <><path d="M7 5h10v3h3v8h-3v3h-3v-3h-4v3H7v-3H4V8h3z"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/><path d="M2 22h20M12 18v4"/></>, roadwatch: <><path d="m8 3-4 18M16 3l4 18"/><path d="M12 4v3m0 4v3m0 4v3" strokeDasharray="2 1"/><path d="M12 5a3 3 0 0 1 3 3c0 2-3 5-3 5S9 10 9 8a3 3 0 0 1 3-3Z"/><circle cx="12" cy="8" r=".8" fill="currentColor" stroke="none"/></>, radio: <><path d="M4 8.5 19 4"/><rect x="3" y="8" width="18" height="12" rx="2"/><circle cx="9" cy="14" r="3"/><path d="M15 12h3m-3 4h3"/></>, home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-7h6v7"/></>,
     grid: <><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></>,
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></>,
     sunset: <><path d="M3 18h18M5 14a7 7 0 0 1 14 0M12 2v3m-7 1 2 2m12-2-2 2m-8 8h2m2 0h2"/></>,
-    moon: <path d="M20.9 13A8.5 8.5 0 0 1 11 3.1 8.5 8.5 0 1 0 20.9 13Z"/>, check: <path d="m5 12 4 4L19 6"/>,
+    moon: <path d="M20.9 13A8.5 8.5 0 0 1 11 3.1 8.5 8.5 0 1 0 20.9 13Z"/>, check: <path d="m5 12 4 4L19 6"/>, power: <><path d="M12 2v10"/><path d="M6.2 5.8a8 8 0 1 0 11.6 0"/></>,
   };
   return <svg {...common}>{paths[name]}</svg>;
 }
 
-function App() {
+function AppContent() {
+  const { stopPlayback } = useRadioPlayback();
   const [mode, setMode] = useState<ViewMode>("phone");
   const [activeNav, setActiveNav] = useState<"home" | "store" | null>(null);
   const [now, setNow] = useState(() => new Date());
@@ -54,6 +59,7 @@ function App() {
   const [hotkeyInput, setHotkeyInput] = useState("Tab");
   const [hotkeyError, setHotkeyError] = useState<string | null>(null);
   const [hotkeySaving, setHotkeySaving] = useState(false);
+  const [hotkeySaved, setHotkeySaved] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
   const [updaterMessage, setUpdaterMessage] = useState(() => t(defaultSettings.language, "updater.notChecked"));
   const [updaterBusy, setUpdaterBusy] = useState(false);
@@ -72,8 +78,6 @@ function App() {
   const [appStoreLoading, setAppStoreLoading] = useState(true);
   const [appStoreError, setAppStoreError] = useState<string | null>(null);
   const [appStoreBusyId, setAppStoreBusyId] = useState<string | null>(null);
-  const [spotifyFeedback, setSpotifyFeedback] = useState<string | null>(null);
-  const [spotifyLaunching, setSpotifyLaunching] = useState(false);
   const settingsRef = useRef(settings);
   const canSaveRef = useRef(true);
   const lastSavedNote = useRef("");
@@ -228,7 +232,6 @@ function App() {
   const visibleWindows = windowState.windows.filter((window) => !window.minimized);
   const installedApps = useMemo(() => appStore ? selectInstalledApps(appStore) : isTauri() ? [] : selectInstalledApps(null), [appStore]);
   const openAppIcons = useMemo(() => selectOpenAppIcons(windowState), [windowState]);
-  const installedExternalApps = installedApps.filter(({ id }) => id === "spotify");
   const availableStoreApps = useMemo(() => selectAvailableApps(appStore), [appStore]);
   const installedStoreApps = useMemo(() => selectInstalledCatalogApps(appStore), [appStore]);
   const runtimeAppInfo = useMemo(() => Object.fromEntries(installedApps.map(({ id, info }) => [id, info])) as Partial<Record<AppId, typeof appInfo[AppId]>>, [installedApps]);
@@ -244,29 +247,6 @@ function App() {
   const openApp = (appId: InternalAppId) => {
     setActiveNav(null);
     dispatch({ type: "open", appId });
-  };
-  const launchSpotify = async () => {
-    if (spotifyLaunching) return;
-    if (!isTauri()) {
-      setSpotifyFeedback(t(language, "spotify.notDesktop"));
-      return;
-    }
-    setSpotifyLaunching(true);
-    setSpotifyFeedback(null);
-    try {
-      const result = await invoke<"started" | "alreadyRequested">("launch_spotify");
-      setSpotifyFeedback(result === "alreadyRequested"
-        ? t(language, "spotify.alreadyRequested")
-        : t(language, "spotify.started"));
-    } catch (error) {
-      setSpotifyFeedback(String(error));
-    } finally {
-      setSpotifyLaunching(false);
-    }
-  };
-  const openInstalledApp = (appId: AppId) => {
-    if (appId === "spotify") void launchSpotify();
-    else openApp(appId);
   };
   const focusApp = (id: string) => {
     setActiveNav(null);
@@ -284,6 +264,7 @@ function App() {
   const openStore = () => showDashboard("store");
 
   const changeInstallation = async (id: string, install: boolean) => {
+    if (!install && id === "settings") return;
     if (!isTauri() || appStoreBusyId) return;
     setAppStoreBusyId(id);
     setAppStoreError(null);
@@ -291,6 +272,7 @@ function App() {
       const snapshot = await invoke<LocalAppStoreSnapshot>(install ? "install_local_app" : "uninstall_local_app", { id });
       setAppStore(snapshot);
       if (!install) {
+        if (id === "radio") stopPlayback();
         const session = windowState.windows.find((window) => window.appId === id);
         if (session) dispatch({ type: "close", id: session.id });
       }
@@ -509,10 +491,12 @@ function App() {
     }
     setHotkeySaving(true);
     setHotkeyError(null);
+    setHotkeySaved(false);
     try {
-      const saved = await invoke<string>("set_overlay_hotkey", { hotkey: hotkeyInput });
+      const saved = await invoke<string>("set_overlay_hotkey", { hotkey: hotkeyInput.trim() });
       setHotkey(saved);
       setHotkeyInput(saved);
+      setHotkeySaved(true);
     } catch (error) {
       setHotkeyError(String(error));
     } finally {
@@ -590,20 +574,19 @@ function App() {
             const hint = isMinimized ? `${info.name} (${t(language, "window.minimized")})` : info.name;
             return <button key={session.id} className={`side-nav-button side-nav-app${active ? " side-nav-active" : ""}${isMinimized ? " side-nav-minimized" : ""}`} type="button" aria-label={isMinimized ? `${hint}; ${t(language, "nav.minimized.restore")}` : t(language, "nav.focus", { name: info.name })} title={hint} aria-current={active ? "page" : undefined} onClick={() => focusApp(session.id)}><Icon name={info.icon} size={22}/></button>;
           })}
-          {installedExternalApps.map(({ id, info }) => <button key={id} className="side-nav-button side-nav-app side-nav-external" type="button" aria-label={t(language, "nav.external.launch", { name: t(language, `app.${id}.name`) })} title={t(language, "nav.external.open", { name: t(language, `app.${id}.name`) })} disabled={spotifyLaunching} onClick={() => void openInstalledApp(id)}><Icon name={info.icon} size={22}/></button>)}
         </div>
         <span className="side-status" role="status" aria-label={t(language, "nav.ready")} title={t(language, "nav.ready")}/>
       </nav>}
 
       <section className="phone-stage" ref={phoneStageRef}>
-        <header className="topbar" data-tauri-drag-region>
-          <div className="topbar-context"><span className="eyebrow">{t(language, "header.digitalSpace")}</span><span className="topbar-greeting">{greeting.text} <span className="greeting-spark"><Icon name={greeting.icon} size={13}/></span></span></div>
-          <div className="topbar-brand" aria-label="LΣGIΦN ΦS">LΣGIΦN ΦS</div>
-          <div className="topbar-right"><span className="date-label">{date}</span><span className="topbar-divider"/><span className="clock">{time}</span><span className="online-indicator" title={t(language, "header.ready")} /></div>
+        <header className={`topbar${mode === "phone" && availableUpdate ? " topbar-has-update" : ""}`}>
+          <div className="topbar-context" data-tauri-drag-region><span className="eyebrow">{t(language, "header.digitalSpace")}</span><span className="topbar-greeting">{greeting.text} <span className="greeting-spark"><Icon name={greeting.icon} size={13}/></span></span></div>
+          <div className="topbar-brand" aria-label="LΣGIΦN ΦS" data-tauri-drag-region>LΣGIΦN ΦS</div>
+          <div className="topbar-right" data-tauri-drag-region><span className="date-label">{date}</span><span className="topbar-divider"/><span className="clock">{time}</span><span className="online-indicator" title={t(language, "header.ready")} /></div>
+          {mode === "phone" && availableUpdate && <button className="topbar-update-notice" type="button" onClick={() => openApp("settings")} title={t(language, "updater.openTitle", { version: availableUpdate.version })} aria-label={`${t(language, "updater.availableBanner")}. ${t(language, "settings.installUpdate", { version: availableUpdate.version })}`}>{t(language, "updater.availableBanner")}</button>}
         </header>
 
         <div className={`workspace${activeNav === "store" ? " workspace-store" : ""}`} ref={workspaceRef}>
-        {spotifyFeedback && <div className="spotify-feedback" role="status">{spotifyFeedback}</div>}
         {activeNav === "store" ? <div className="store-view">
           <div className="store-heading"><div><p className="section-kicker">{t(language, "store.kicker")}</p><h1>{t(language, "store.title")}<span>.</span></h1><p className="welcome-copy">{t(language, "store.subtitle")}</p></div><span className="store-local-badge"><span className="status-dot"/> {t(language, "store.localOnly")}</span></div>
           {appStoreError && <div className="store-message store-error" role="alert">{appStoreError}</div>}
@@ -622,7 +605,8 @@ function App() {
                 const info = appInfo[manifest.id as AppId];
                 const usageState = getAppUsageState(manifest.id, appStore, windowState);
                 const usageLabel = t(language, `store.usage.${usageState}`);
-                return <article className={`store-card app-${info.color}`} key={`${item.folder}-${manifest.id}`}><span className="app-icon-wrap"><Icon name={manifest.icon} size={23}/></span><div className="store-card-copy"><h3>{manifestName(manifest.id, manifest.name)}</h3><span>{t(language, "store.version", { version: manifest.version })}</span><p>{manifestDescription(manifest.id, manifest.description)}</p><span className={`store-state store-state-${usageState}`}>{usageLabel}</span></div><button type="button" className="store-action store-remove" title={!canSave ? t(language, "store.readOnly") : undefined} disabled={appStoreBusyId !== null || !canSave} onClick={() => void changeInstallation(manifest.id, false)}>{appStoreBusyId === manifest.id ? t(language, "store.uninstalling") : t(language, "store.uninstall")}</button></article>;
+                const protectedApp = manifest.id === "settings";
+                return <article className={`store-card app-${info.color}`} key={`${item.folder}-${manifest.id}`}><span className="app-icon-wrap"><Icon name={manifest.icon} size={23}/></span><div className="store-card-copy"><h3>{manifestName(manifest.id, manifest.name)}</h3><span>{t(language, "store.version", { version: manifest.version })}</span><p>{manifestDescription(manifest.id, manifest.description)}</p><span className={`store-state store-state-${usageState}`}>{usageLabel}</span></div><button type="button" className="store-action store-remove" title={protectedApp ? t(language, "store.required") : !canSave ? t(language, "store.readOnly") : undefined} disabled={protectedApp || appStoreBusyId !== null || !canSave} onClick={() => void changeInstallation(manifest.id, false)}>{protectedApp ? t(language, "store.required") : appStoreBusyId === manifest.id ? t(language, "store.uninstalling") : t(language, "store.uninstall")}</button></article>;
               })}</div>}
             </section>
             {appStore.apps.some((item) => item.error) && <section className="store-section store-invalid"><div className="store-section-heading"><h2>{t(language, "store.skipped")}</h2></div><ul>{appStore.apps.filter((item) => item.error).map((item) => <li key={item.folder}><strong>{item.folder}</strong><span>{item.error}</span></li>)}</ul></section>}
@@ -640,7 +624,7 @@ function App() {
             {installedApps.map(({ id, info }, index) => {
               const session = windowState.windows.find((window) => window.appId === id);
               const localizedInfo = getAppInfo(id);
-              return <button className={`app-card app-${info.color}${session && !session.minimized ? " app-running" : ""}`} key={id} onClick={() => openInstalledApp(id)}>
+              return <button className={`app-card app-${info.color}${session && !session.minimized ? " app-running" : ""}`} key={id} onClick={() => openApp(id)}>
                 <span className="app-card-index">0{index + 1}</span><span className="app-icon-wrap"><Icon name={localizedInfo.icon} size={25}/><span className="app-icon-glow" /></span>
                 <span className="app-card-title">{localizedInfo.name}</span><span className="app-card-subtitle">{localizedInfo.subtitle}</span>
                 <span className="app-card-arrow"><Icon name="chevron" size={15}/></span>{session && <span className={`running-dot${session.minimized ? " running-muted" : ""}`} title={session.minimized ? t(language, "window.minimized") : t(language, "window.opened")}/>}
@@ -662,8 +646,9 @@ function App() {
             {minimized.map((window) => <button key={window.id} className="dock-window dock-minimized" onClick={() => dispatch({ type: "activate", id: window.id })} title={getAppInfo(window.appId).name} aria-label={getAppInfo(window.appId).name}><Icon name={getAppInfo(window.appId).icon} size={15}/><span>{getAppInfo(window.appId).name}</span></button>)}
           </div>}
           {mode === "phone" && <button className={`dock-store${!activeWindow && activeNav === "store" ? " dock-nav-active" : ""}`} type="button" aria-label={t(language, "nav.store")} title={t(language, "nav.store")} aria-current={!activeWindow && activeNav === "store" ? "page" : undefined} onClick={openStore}><Icon name="grid" size={19}/></button>}
-          {availableUpdate && <button className="dock-update-notice" type="button" onClick={() => openApp("settings")} title={t(language, "updater.openTitle", { version: availableUpdate.version })} aria-label={`${t(language, "updater.availableBanner")}. ${t(language, "settings.installUpdate", { version: availableUpdate.version })}`}>{t(language, "updater.availableBanner")}</button>}
-          <span className="dock-session"><span className="status-dot"/> {t(language, "nav.session")} <span className="dock-version">{t(language, "nav.preview")}</span></span>
+          {mode === "tablet" && availableUpdate && <button className="dock-update-notice" type="button" onClick={() => openApp("settings")} title={t(language, "updater.openTitle", { version: availableUpdate.version })} aria-label={`${t(language, "updater.availableBanner")}. ${t(language, "settings.installUpdate", { version: availableUpdate.version })}`}>{t(language, "updater.availableBanner")}</button>}
+          <span className="dock-session"><span className="status-dot"/> {t(language, "nav.session")} <span className="dock-version">{packageMetadata.version}</span></span>
+          <button className="dock-power" type="button" aria-label={t(language, "settings.exit")} title={t(language, "settings.exit")} onClick={() => void invoke("exit_phone")}><Icon name="power" size={17}/></button>
         </footer>
 
         {visibleWindows.map((shownWindow, windowIndex) => {
@@ -689,7 +674,7 @@ function App() {
           <div className={`window-titlebar${mode === "tablet" ? " window-titlebar-draggable" : ""}`} onPointerDown={(event) => handleWindowPointerDown(shownWindow.id, event)} onPointerMove={handleWindowPointerMove} onPointerUp={handleWindowPointerEnd} onPointerCancel={handleWindowPointerEnd}>
             <div className="window-app-mark"><Icon name={getAppInfo(shownWindow.appId).icon} size={16}/></div>
             <div className="window-title"><strong>{getAppInfo(shownWindow.appId).name}</strong><span>{getAppInfo(shownWindow.appId).subtitle}</span></div>
-            <div className="window-actions"><button onClick={() => dispatch({ type: "minimize", id: shownWindow.id })} aria-label={t(language, "window.minimize")}><Icon name="minus" size={16}/></button><button className="window-close" onClick={() => dispatch({ type: "close", id: shownWindow.id })} aria-label={t(language, "window.close")}><Icon name="close" size={16}/></button></div>
+            <div className="window-actions"><button onClick={() => dispatch({ type: "minimize", id: shownWindow.id })} aria-label={t(language, "window.minimize")}><Icon name="minus" size={16}/></button><button className="window-close" onClick={() => { if (shownWindow.appId === "radio") stopPlayback(); dispatch({ type: "close", id: shownWindow.id }); }} aria-label={t(language, "window.close")}><Icon name="close" size={16}/></button></div>
           </div>
           <div className="window-content">
             {shownWindow.appId === "settings" && <div className="settings-view"><div className="window-section-heading"><span className="section-kicker">{t(language, "settings.kicker")}</span><h2>{t(language, "settings.title")}</h2><p>{t(language, "settings.subtitle")}</p></div>
@@ -711,14 +696,16 @@ function App() {
                 {updaterBusy && availableUpdate && (downloadTotal === null || downloadTotal <= 0) && downloadedBytes > 0 && <p className="updater-bytes">{t(language, "updater.downloaded", { size: (downloadedBytes / 1_048_576).toFixed(1) })}</p>}
                 <p className="updater-status" role="status" aria-live="polite">{updaterMessage}</p>
               </section>
-              <div className="hotkey-settings"><label htmlFor="overlay-hotkey">{t(language, "settings.hotkeyLabel")}</label><div className="hotkey-input-row"><input id="overlay-hotkey" value={hotkeyInput} onChange={(event) => setHotkeyInput(event.currentTarget.value)} placeholder="Tab" aria-describedby="hotkey-help"/><button onClick={() => void saveHotkey()} disabled={hotkeySaving || hotkeyInput.trim() === hotkey}>{hotkeySaving ? t(language, "settings.saving") : t(language, "settings.apply")}</button></div><p id="hotkey-help">{t(language, "settings.current")}: <strong>{hotkey}</strong>. {t(language, "settings.hotkeyHelp")}</p>{hotkeyError && <p className="hotkey-error" role="alert">{hotkeyError}</p>}<p className="ephemeral-note"><span className="note-dot"/> {t(language, "settings.exitDescription")}</p><button className="exit-phone-button" onClick={() => void invoke("exit_phone")}>{t(language, "settings.exit")}</button></div>
+              <div className="hotkey-settings"><label htmlFor="overlay-hotkey">{t(language, "settings.hotkeyLabel")}</label><div className="hotkey-input-row"><input id="overlay-hotkey" value={hotkeyInput} onChange={(event) => { setHotkeyInput(event.currentTarget.value); setHotkeyError(null); setHotkeySaved(false); }} onKeyDown={(event) => { if (event.key === "Enter" && !hotkeySaving && hotkeyInput.trim() !== hotkey) { event.preventDefault(); void saveHotkey(); } }} placeholder="F8, A or ctrl+shift+space" autoComplete="off" spellCheck={false} aria-describedby="hotkey-help"/><button type="button" onClick={() => void saveHotkey()} disabled={hotkeySaving || !canSave || !hotkeyInput.trim() || hotkeyInput.trim() === hotkey}>{hotkeySaving ? t(language, "settings.saving") : t(language, "settings.saveHotkey")}</button></div><p id="hotkey-help">{t(language, "settings.current")}: <strong>{hotkey}</strong>. {t(language, "settings.hotkeyHelp")}</p>{hotkeySaved && <p className="hotkey-saved" role="status">{t(language, "settings.hotkeySaved")}</p>}{hotkeyError && <p className="hotkey-error" role="alert">{hotkeyError}</p>}<p className="ephemeral-note"><span className="note-dot"/> {t(language, "settings.exitDescription")}</p><button className="exit-phone-button" onClick={() => void invoke("exit_phone")}>{t(language, "settings.exit")}</button></div>
               <p className="ephemeral-note"><span className="note-dot"/> {persistence === "error" ? t(language, "settings.saveFailed") : persistence === "memory" ? t(language, "settings.memoryOnly") : t(language, "settings.savedLocally")}</p></div>}
             {shownWindow.appId === "notes" && <div className="notes-view"><div className="window-section-heading"><span className="section-kicker">{t(language, "notes.kicker")}</span><h2>{t(language, "notes.title")}</h2><p>{t(language, "notes.subtitle")}</p></div><label className="note-label" htmlFor="quick-note">{t(language, "notes.label")}</label><textarea id="quick-note" value={note} onChange={(event) => setNote(event.currentTarget.value)} onBlur={() => { if (isTauri() && canSaveRef.current && note !== lastSavedNote.current) { const value = note; void enqueueSave(async () => { await invoke("save_notes", { notes: value }); lastSavedNote.current = value; }); } }} placeholder={t(language, "notes.placeholder")}/><div className="note-footer"><span>{note.length} {t(language, "notes.characters")}</span><span className={`save-indicator save-${persistence}`}><span className="status-dot"/> {t(language, persistence === "saving" ? "notes.saving" : persistence === "error" ? "notes.saveProblem" : persistence === "memory" ? "notes.memory" : "notes.saved")}</span></div></div>}
             {shownWindow.appId === "demo" && <div className="demo-view"><div className="window-section-heading"><span className="section-kicker">{t(language, "demo.kicker")}</span><h2>{t(language, "demo.title")}</h2><p>{t(language, "demo.subtitle")}</p></div><div className="counter-card"><div className="counter-orbit"><Icon name="spark" size={28}/></div><span className="counter-label">{t(language, "demo.counter")}</span><strong className="counter-number">{count.toString().padStart(2, "0")}</strong><button className="counter-button" onClick={() => setCount((value) => value + 1)}>{t(language, "demo.next")} <Icon name="chevron" size={16}/></button><span className="ephemeral-note"><span className="note-dot"/> {t(language, "demo.notSaved")}</span></div><button className="reset-button" onClick={() => setCount(0)}>{t(language, "demo.reset")}</button></div>}
             {shownWindow.appId === "focus" && <FocusApp language={language} onActivate={() => { setActiveNav(null); dispatch({ type: "activate", id: shownWindow.id }); }}/>}
             {shownWindow.appId === "snake" && <SnakeApp active={isActive} language={language}/>}
             {shownWindow.appId === "pong" && <PongApp active={isActive} language={language}/>}
+            {shownWindow.appId === "space-invaders" && <SpaceInvadersApp active={isActive} language={language}/>}
             {shownWindow.appId === "roadwatch" && <RoadWatchApp active={isActive} truckersmpId={settings.truckersmpId} vtcId={settings.vtcId} language={language} onOpenSettings={() => openApp("settings")}/>}
+            {shownWindow.appId === "radio" && <RadioApp language={language}/>}
           </div>
           {mode === "tablet" && (["n", "s", "e", "w", "ne", "nw", "se", "sw"] as const).map((edge) => <div
             key={edge}
@@ -734,6 +721,10 @@ function App() {
       </section>
     </main>
   );
+}
+
+function App() {
+  return <RadioPlaybackProvider><AppContent/></RadioPlaybackProvider>;
 }
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (checked: boolean) => void; label: string }) {

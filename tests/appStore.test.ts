@@ -17,15 +17,6 @@ test("store selection separates available apps from installed apps and rejects i
   assert.deepEqual(selectInstalledCatalogApps(snapshot).map((app) => app.manifest?.id), ["settings"]);
 });
 
-test("Spotify is available before install and listed as installed without an internal window", () => {
-  const available: LocalAppStoreSnapshot = { apps: [entry("spotify", false)], installedIds: [] };
-  const installed: LocalAppStoreSnapshot = { apps: [entry("spotify", true)], installedIds: ["spotify"] };
-  assert.deepEqual(selectInstalledApps(available), []);
-  assert.deepEqual(selectAvailableApps(available).map((app) => app.manifest?.id), ["spotify"]);
-  assert.deepEqual(selectInstalledApps(installed).map((app) => app.id), ["spotify"]);
-  assert.equal(getAppUsageState("spotify", installed, initialWindowState), "installed");
-});
-
 test("Pong appears as a local store app and uses the shared installed-window state", () => {
   const manifest = { id: "pong" as const, name: "Pong", version: "1.0.0", description: "Pong gegen die LegionOS-KI", icon: "pong" as const, type: "internal" as const, entry: "pong" };
   const available: LocalAppStoreSnapshot = { apps: [{ folder: "pong", manifest, error: null, installed: false }], installedIds: [] };
@@ -37,6 +28,15 @@ test("Pong appears as a local store app and uses the shared installed-window sta
   const id = windows.windows[0].id;
   windows = windowReducer(windows, { type: "minimize", id });
   assert.equal(getAppUsageState("pong", installed, windows), "minimized");
+});
+
+test("Radio appears as a local store app and uses the shared installed-window state", () => {
+  const available: LocalAppStoreSnapshot = { apps: [entry("radio", false)], installedIds: [] };
+  const installed: LocalAppStoreSnapshot = { apps: [entry("radio", true)], installedIds: ["radio"] };
+  assert.deepEqual(selectAvailableApps(available).map((app) => app.manifest?.id), ["radio"]);
+  assert.deepEqual(selectInstalledApps(installed).map((app) => app.id), ["radio"]);
+  const windows = windowReducer(initialWindowState, { type: "open", appId: "radio" });
+  assert.equal(getAppUsageState("radio", installed, windows), "active");
 });
 
 test("app usage state distinguishes available, installed, open, minimized, active, and closed", () => {

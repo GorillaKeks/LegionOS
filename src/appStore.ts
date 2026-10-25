@@ -27,7 +27,7 @@ export type InstalledApp = { id: AppId; info: AppDefinition };
 export type AppUsageState = "available" | "installed" | "open" | "minimized" | "active";
 
 export function selectInstalledApps(snapshot: LocalAppStoreSnapshot | null): InstalledApp[] {
-  if (!snapshot) return (Object.keys(appInfo) as AppId[]).filter((id) => id !== "focus" && id !== "spotify").map((id) => ({ id, info: appInfo[id] }));
+  if (!snapshot) return (Object.keys(appInfo) as AppId[]).filter((id) => id !== "focus").map((id) => ({ id, info: appInfo[id] }));
   return snapshot.apps.flatMap((item) => {
     const manifest = item.manifest;
     if (!item.installed || !manifest || !isAppId(manifest.id) || !snapshot.installedIds.includes(manifest.id)) return [];

@@ -1,6 +1,6 @@
-export type AppId = "settings" | "notes" | "demo" | "focus" | "snake" | "pong" | "spotify" | "roadwatch";
-export type InternalAppId = Exclude<AppId, "spotify">;
-export type AppIcon = "settings" | "note" | "spark" | "snake" | "pong" | "roadwatch";
+export type AppId = "settings" | "notes" | "demo" | "focus" | "snake" | "pong" | "space-invaders" | "roadwatch" | "radio";
+export type InternalAppId = AppId;
+export type AppIcon = "settings" | "note" | "spark" | "snake" | "pong" | "invaders" | "roadwatch" | "radio";
 
 export type AppDefinition = {
   name: string;
@@ -16,8 +16,9 @@ export const appInfo: Record<AppId, AppDefinition> = {
   focus: { name: "Fokus", subtitle: "Kurze Fokus-Checkliste", icon: "spark", color: "cyan" },
   snake: { name: "Snake", subtitle: "Klassisches Snake im futuristischen Legion-Design", icon: "snake", color: "cyan" },
   pong: { name: "Pong", subtitle: "Der Arcade-Klassiker gegen die LegionOS-KI", icon: "pong", color: "cyan" },
-  spotify: { name: "Spotify", subtitle: "Spotify Desktop in eigenem Fenster starten", icon: "spark", color: "cyan" },
+  "space-invaders": { name: "Space Invaders", subtitle: "Verteidige die Galaxie im Retro-Arcade-Stil", icon: "invaders", color: "cyan" },
   roadwatch: { name: "RoadWatch", subtitle: "Live VTC- und Spielerübersicht", icon: "roadwatch", color: "cyan" },
+  radio: { name: "Radio", subtitle: "Internetradiosender entdecken und hören", icon: "radio", color: "cyan" },
 };
 
 export function isAppId(value: string): value is AppId {

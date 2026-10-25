@@ -245,6 +245,9 @@ impl ConfigStore {
         if !is_valid_app_id(app_id) {
             return Err("Ungültige App-ID.".into());
         }
+        if app_id == "settings" {
+            return Err("Die Einstellungen sind eine notwendige System-App und können nicht deinstalliert werden.".into());
+        }
         let mut state = self.lock();
         ensure_writable(&state)?;
         let mut next = state.config.clone();
@@ -346,7 +349,9 @@ fn parse_config(bytes: &[u8]) -> Result<(PhoneConfig, bool), ConfigFileError> {
     }
     let mut config: PhoneConfig = serde_json::from_value(value)
         .map_err(|error| ConfigFileError::Invalid(error.to_string()))?;
-    let migrated = config.version != CONFIG_VERSION;
+    let retired_app_removed = config.installed_apps.iter().any(|id| id == "spotify");
+    config.installed_apps.retain(|id| id != "spotify");
+    let migrated = config.version != CONFIG_VERSION || retired_app_removed;
     let previous_default = (config.version < 3
         && PRE_V3_DEFAULT_HOTKEYS
             .iter()
@@ -601,26 +606,35 @@ mod tests {
     }
 
     #[test]
-    fn uninstalling_spotify_removes_only_its_phone_store_record() {
+    fn settings_app_cannot_be_uninstalled() {
         let path = test_path();
-        let marker = path.parent().unwrap().join("Spotify.exe");
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(&marker, b"existing Spotify installation marker").unwrap();
         let store = ConfigStore::open(path.clone()).unwrap();
-        store.install_app("spotify").unwrap();
-        assert!(
-            store
-                .config()
-                .installed_apps
-                .iter()
-                .any(|id| id == "spotify")
-        );
-        let remaining = store.uninstall_app("spotify").unwrap();
-        assert!(!remaining.iter().any(|id| id == "spotify"));
-        assert_eq!(
-            fs::read(&marker).unwrap(),
-            b"existing Spotify installation marker"
-        );
+        let error = store.uninstall_app("settings").unwrap_err();
+        assert!(error.contains("System-App"));
+        assert!(store.config().installed_apps.iter().any(|id| id == "settings"));
+        let _ = fs::remove_dir_all(path.parent().unwrap().parent().unwrap());
+    }
+
+    #[test]
+    fn removes_retired_spotify_install_record_and_preserves_other_config() {
+        let path = test_path();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(
+            &path,
+            br#"{"version":8,"mode":"tablet","settings":{"language":"de"},"notes":"bleibt erhalten","overlayHotkey":"F8","installedApps":["spotify","radio"]}"#,
+        )
+        .unwrap();
+
+        let store = ConfigStore::open(path.clone()).unwrap();
+        let config = store.config();
+        assert_eq!(config.mode, ViewMode::Tablet);
+        assert_eq!(config.settings.language, UiLanguage::German);
+        assert_eq!(config.notes, "bleibt erhalten");
+        assert_eq!(config.overlay_hotkey, "F8");
+        assert_eq!(config.installed_apps, vec!["radio"]);
+
+        let persisted: PhoneConfig = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert_eq!(persisted.installed_apps, vec!["radio"]);
         let _ = fs::remove_dir_all(path.parent().unwrap().parent().unwrap());
     }
 
