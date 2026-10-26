@@ -10,6 +10,7 @@ import FocusApp from "./FocusApp";
 import SnakeApp from "../apps/snake/SnakeApp";
 import PongApp from "../apps/pong/PongApp";
 import SpaceInvadersApp from "../apps/space-invaders/SpaceInvadersApp";
+import SnowmanHateYouApp from "../apps/snowman-hate-you/SnowmanHateYouApp";
 import RoadWatchApp from "../apps/roadwatch/RoadWatchApp";
 import RadioApp from "../apps/radio/RadioApp";
 import { RadioPlaybackProvider, useRadioPlayback } from "../apps/radio/RadioPlayback";
@@ -29,7 +30,7 @@ type WindowDrag =
   | { kind: "resize"; windowId: string; pointerId: number; edge: ResizeEdge; startX: number; startY: number; startWidth: number; startHeight: number; pointerX: number; pointerY: number };
 const defaultSettings: UserSettings = { quietMode: false, accentOn: true, truckersmpId: "", vtcId: "", language: "en" };
 
-type IconName = "settings" | "note" | "spark" | "snake" | "pong" | "invaders" | "roadwatch" | "radio" | "chevron" | "close" | "minus" | "home" | "grid" | "sun" | "sunset" | "moon" | "check" | "power";
+type IconName = "settings" | "note" | "spark" | "snake" | "pong" | "invaders" | "snowman" | "roadwatch" | "radio" | "chevron" | "close" | "minus" | "home" | "grid" | "sun" | "sunset" | "moon" | "check" | "power";
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
@@ -39,6 +40,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
     spark: <><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="m19 16 .9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9L19 16Z"/></>,
     chevron: <path d="m9 18 6-6-6-6"/>, close: <path d="m18 6-12 12M6 6l12 12"/>,
     minus: <path d="M5 12h14"/>, snake: <><path d="M5 7h7a3 3 0 0 1 3 3v4a3 3 0 0 0 3 3h1"/><path d="M5 7v4a3 3 0 0 0 3 3h4a3 3 0 0 1 3 3v0"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="19" cy="17" r="1" fill="currentColor"/></>, pong: <><path d="M5 5v5M5 14v5M19 5v5M19 14v5"/><path d="M12 3v18" strokeDasharray="2 3"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></>, invaders: <><path d="M7 5h10v3h3v8h-3v3h-3v-3h-4v3H7v-3H4V8h3z"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/><path d="M2 22h20M12 18v4"/></>, roadwatch: <><path d="m8 3-4 18M16 3l4 18"/><path d="M12 4v3m0 4v3m0 4v3" strokeDasharray="2 1"/><path d="M12 5a3 3 0 0 1 3 3c0 2-3 5-3 5S9 10 9 8a3 3 0 0 1 3-3Z"/><circle cx="12" cy="8" r=".8" fill="currentColor" stroke="none"/></>, radio: <><path d="M4 8.5 19 4"/><rect x="3" y="8" width="18" height="12" rx="2"/><circle cx="9" cy="14" r="3"/><path d="M15 12h3m-3 4h3"/></>, home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-7h6v7"/></>,
+    snowman: <><circle cx="12" cy="16" r="5.5"/><circle cx="12" cy="7.5" r="3.7"/><path d="M12 3V1m-1 6h.1m2 0h.1m-1.4 3.8.2.1M6 13l-3-2m15 2 3-2"/><circle cx="10.8" cy="7" r=".45" fill="currentColor"/><circle cx="13.2" cy="7" r=".45" fill="currentColor"/></>,
     grid: <><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></>,
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></>,
     sunset: <><path d="M3 18h18M5 14a7 7 0 0 1 14 0M12 2v3m-7 1 2 2m12-2-2 2m-8 8h2m2 0h2"/></>,
@@ -61,10 +63,12 @@ function AppContent() {
   const [hotkeySaving, setHotkeySaving] = useState(false);
   const [hotkeySaved, setHotkeySaved] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
+  const [updateConfirmOpen, setUpdateConfirmOpen] = useState(false);
   const [updaterMessage, setUpdaterMessage] = useState(() => t(defaultSettings.language, "updater.notChecked"));
   const [updaterBusy, setUpdaterBusy] = useState(false);
   const [downloadedBytes, setDownloadedBytes] = useState(0);
   const [downloadTotal, setDownloadTotal] = useState<number | null>(null);
+  const updateCancelButton = useRef<HTMLButtonElement>(null);
   const [count, setCount] = useState(0);
   const [truckersmpIdDraft, setTruckersmpIdDraft] = useState("");
   const [vtcIdDraft, setVtcIdDraft] = useState("");
@@ -532,9 +536,7 @@ function AppContent() {
 
   const installAvailableUpdate = async () => {
     if (!availableUpdate || updaterBusy) return;
-    const notes = availableUpdate.body?.trim();
-    const detail = notes ? `\n\n${t(language, "updater.notes")}\n${notes}` : `\n\n${t(language, "updater.noNotes")}`;
-    if (!window.confirm(`${t(language, "updater.confirm", { version: availableUpdate.version })}${detail}`)) return;
+    setUpdateConfirmOpen(false);
     setUpdaterBusy(true);
     setUpdaterMessage(t(language, "updater.downloading"));
     setDownloadedBytes(0);
@@ -555,6 +557,35 @@ function AppContent() {
       setUpdaterBusy(false);
     }
   };
+
+  useEffect(() => {
+    if (!updateConfirmOpen) return;
+    const opener = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
+    updateCancelButton.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setUpdateConfirmOpen(false);
+      }
+      if (event.key === "Tab") {
+        const buttons = document.querySelectorAll<HTMLButtonElement>(".update-confirm-dialog button:not(:disabled)");
+        const first = buttons[0];
+        const last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      requestAnimationFrame(() => opener?.focus());
+    };
+  }, [updateConfirmOpen]);
 
   if (!loaded) {
     return <main className="boot-screen"><span className="boot-mark"/><span>{t(settings.language, "boot.loading")}</span></main>;
@@ -690,7 +721,7 @@ function AppContent() {
                 <div className="updater-heading"><div><span className="section-kicker">LEGIONOS</span><h3 id="updater-heading">{t(language, "settings.updates")}</h3></div><span className="updater-lock" title={t(language, "settings.signed")}><Icon name="check" size={15}/> {t(language, "settings.signed")}</span></div>
                 <p className="updater-description">{t(language, "settings.updaterDescription")}</p>
                 <div className="updater-actions"><button className="updater-button" type="button" onClick={() => void checkForUpdates()} disabled={updaterBusy}>{updaterBusy && !availableUpdate ? t(language, "settings.checking") : t(language, "settings.checkUpdates")}</button>
-                  {availableUpdate && <button className="updater-button updater-install" type="button" onClick={() => void installAvailableUpdate()} disabled={updaterBusy}>{updaterBusy ? t(language, "settings.installingUpdate") : t(language, "settings.installUpdate", { version: availableUpdate.version })}</button>}</div>
+                  {availableUpdate && <button className="updater-button updater-install" type="button" onClick={() => setUpdateConfirmOpen(true)} disabled={updaterBusy}>{updaterBusy ? t(language, "settings.installingUpdate") : t(language, "settings.installUpdate", { version: availableUpdate.version })}</button>}</div>
                 {availableUpdate?.body && <p className="updater-notes"><strong>{t(language, "settings.releaseNotes")}</strong><br/>{availableUpdate.body}</p>}
                 {downloadTotal !== null && downloadTotal > 0 && <div className="updater-progress"><progress max={downloadTotal} value={Math.min(downloadedBytes, downloadTotal)}/><span>{Math.round(Math.min(downloadedBytes / downloadTotal, 1) * 100)} %</span></div>}
                 {updaterBusy && availableUpdate && (downloadTotal === null || downloadTotal <= 0) && downloadedBytes > 0 && <p className="updater-bytes">{t(language, "updater.downloaded", { size: (downloadedBytes / 1_048_576).toFixed(1) })}</p>}
@@ -704,6 +735,7 @@ function AppContent() {
             {shownWindow.appId === "snake" && <SnakeApp active={isActive} language={language}/>}
             {shownWindow.appId === "pong" && <PongApp active={isActive} language={language}/>}
             {shownWindow.appId === "space-invaders" && <SpaceInvadersApp active={isActive} language={language}/>}
+            {shownWindow.appId === "snowman-hate-you" && <SnowmanHateYouApp active={isActive} language={language}/>}
             {shownWindow.appId === "roadwatch" && <RoadWatchApp active={isActive} truckersmpId={settings.truckersmpId} vtcId={settings.vtcId} language={language} onOpenSettings={() => openApp("settings")}/>}
             {shownWindow.appId === "radio" && <RadioApp language={language}/>}
           </div>
@@ -719,6 +751,17 @@ function AppContent() {
         </section>;
         })}
       </section>
+      {updateConfirmOpen && availableUpdate && <div className="update-confirm-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setUpdateConfirmOpen(false); }}>
+        <section className="update-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="update-confirm-title" aria-describedby="update-confirm-prompt">
+          <h2 id="update-confirm-title">{t(language, "updater.dialogTitle")}</h2>
+          {availableUpdate.body?.trim() && <div className="update-confirm-notes"><span>{t(language, "settings.releaseNotes")}</span><p>{availableUpdate.body.trim()}</p></div>}
+          <p id="update-confirm-prompt">{t(language, "updater.dialogPrompt", { version: availableUpdate.version })}</p>
+          <div className="update-confirm-actions">
+            <button ref={updateCancelButton} type="button" className="update-confirm-cancel" onClick={() => setUpdateConfirmOpen(false)}>{t(language, "updater.dialogCancel")}</button>
+            <button type="button" className="update-confirm-install" onClick={() => void installAvailableUpdate()}>{t(language, "updater.dialogInstall")}</button>
+          </div>
+        </section>
+      </div>}
     </main>
   );
 }

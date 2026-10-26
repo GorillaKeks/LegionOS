@@ -18,7 +18,7 @@ Jeder direkte Unterordner enthält genau eine `manifest.json` mit diesen Feldern
 }
 ```
 
-IDs, Typen und Einstiegspunkte müssen im Programm registriert sein. Interne Apps verwenden fest eingebundene LegionOS-Komponenten; Manifestwerte können keine Programme oder Pfade vorgeben. Unterstützte Icons sind `settings`, `note`, `spark`, `snake`, `pong`, `invaders`, `roadwatch` und `radio`. Es werden keine Skripte oder beliebigen Einstiegspfade aus Manifesten geladen.
+IDs, Typen und Einstiegspunkte müssen im Programm registriert sein. Interne Apps verwenden fest eingebundene LegionOS-Komponenten; Manifestwerte können keine Programme oder Pfade vorgeben. Unterstützte Icons sind `settings`, `note`, `spark`, `snake`, `pong`, `invaders`, `snowman`, `roadwatch` und `radio`. Es werden keine Skripte oder beliebigen Einstiegspfade aus Manifesten geladen.
 
 Manifeste müssen gültiges UTF-8-JSON sein und höchstens 64 KiB umfassen. Unbekannte Felder, ungültige oder doppelte IDs, ungültige SemVer-Versionen und nicht unterstützte Typen/Einstiegspunkte werden abgewiesen. Der Katalog zeigt solche Einträge mit einer Fehlermeldung, ohne den Start von LegionOS zu verhindern.
 
@@ -33,6 +33,7 @@ Installierte App-IDs werden in `phone.json` unter `installedApps` gespeichert. N
 - `snake`: Snake Arcade (zunächst nicht installiert)
 - `pong`: Pong gegen die LegionOS-KI (zunächst nicht installiert)
 - `space-invaders`: Space Invaders Retro-Arcade-Shooter (zunächst nicht installiert)
+- `snowman-hate-you`: Snowman Hate You (zunächst nicht installiert)
 - `roadwatch`: RoadWatch Live-VTC-Übersicht (zunächst nicht installiert)
 - `radio`: Internetradio-Verzeichnis und Player (zunächst nicht installiert)
 
@@ -41,6 +42,8 @@ Snake verwendet die fest registrierte interne Komponente `apps/snake/SnakeApp.ts
 Pong verwendet die fest registrierte interne Komponente `apps/pong/PongApp.tsx`; Bewegung, Kollisionen und Punktestand liegen in `apps/pong/game.ts`. Der persönliche Rekord wird lokal unter `legion-os.pong.best-score.v1` gespeichert.
 
 Space Invaders verwendet die fest registrierte interne Komponente `apps/space-invaders/SpaceInvadersApp.tsx`; Bewegung, Treffer, Gegnerformation, Bosskampf und Spielzustand liegen in `apps/space-invaders/game.ts`. Der persönliche Rekord wird lokal unter `legion-os.space-invaders.best-score.v1` gespeichert.
+
+Snowman Hate You ist ein eigenständiger 2D-Winter-Rage-Plattformer mit Sprüngen, Abgründen und Schneeball werfenden Schneemännern. Die fest registrierte interne Komponente liegt in `apps/snowman-hate-you/SnowmanHateYouApp.tsx`; Bewegung und Kollisionsregeln liegen in `game.ts`. Die weiteste Strecke wird lokal unter `legion-os.snowman-hate-you.best-distance.v1` gespeichert.
 
 RoadWatch ist als interne LegionOS-Komponente eingebettet. Die TruckersMP-ID und VTC-ID werden in den LegionOS-Einstellungen gespeichert und für die TruckersMP- und ETS2Map-API verwendet. Die Datenabfrage läuft über Rust; das RoadWatch-Fenster bleibt ein internes React-Fenster und benötigt keine separate RoadWatch-Installation.
 

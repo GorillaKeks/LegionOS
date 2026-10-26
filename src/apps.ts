@@ -1,6 +1,6 @@
-export type AppId = "settings" | "notes" | "demo" | "focus" | "snake" | "pong" | "space-invaders" | "roadwatch" | "radio";
+export type AppId = "settings" | "notes" | "demo" | "focus" | "snake" | "pong" | "space-invaders" | "snowman-hate-you" | "roadwatch" | "radio";
 export type InternalAppId = AppId;
-export type AppIcon = "settings" | "note" | "spark" | "snake" | "pong" | "invaders" | "roadwatch" | "radio";
+export type AppIcon = "settings" | "note" | "spark" | "snake" | "pong" | "invaders" | "snowman" | "roadwatch" | "radio";
 
 export type AppDefinition = {
   name: string;
@@ -17,6 +17,7 @@ export const appInfo: Record<AppId, AppDefinition> = {
   snake: { name: "Snake", subtitle: "Klassisches Snake im futuristischen Legion-Design", icon: "snake", color: "cyan" },
   pong: { name: "Pong", subtitle: "Der Arcade-Klassiker gegen die LegionOS-KI", icon: "pong", color: "cyan" },
   "space-invaders": { name: "Space Invaders", subtitle: "Verteidige die Galaxie im Retro-Arcade-Stil", icon: "invaders", color: "cyan" },
+  "snowman-hate-you": { name: "Snowman Hate You", subtitle: "Ein winterlicher Weg voller hinterhältiger Schneemänner", icon: "snowman", color: "cyan" },
   roadwatch: { name: "RoadWatch", subtitle: "Live VTC- und Spielerübersicht", icon: "roadwatch", color: "cyan" },
   radio: { name: "Radio", subtitle: "Internetradiosender entdecken und hören", icon: "radio", color: "cyan" },
 };

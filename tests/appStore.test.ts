@@ -39,6 +39,15 @@ test("Radio appears as a local store app and uses the shared installed-window st
   assert.equal(getAppUsageState("radio", installed, windows), "active");
 });
 
+test("Snowman Hate You is installable and opens through the shared app-window state", () => {
+  const available: LocalAppStoreSnapshot = { apps: [entry("snowman-hate-you", false)], installedIds: [] };
+  const installed: LocalAppStoreSnapshot = { apps: [entry("snowman-hate-you", true)], installedIds: ["snowman-hate-you"] };
+  assert.deepEqual(selectAvailableApps(available).map((app) => app.manifest?.id), ["snowman-hate-you"]);
+  assert.deepEqual(selectInstalledApps(installed).map((app) => app.id), ["snowman-hate-you"]);
+  const windows = windowReducer(initialWindowState, { type: "open", appId: "snowman-hate-you" });
+  assert.equal(getAppUsageState("snowman-hate-you", installed, windows), "active");
+});
+
 test("app usage state distinguishes available, installed, open, minimized, active, and closed", () => {
   const snapshot: LocalAppStoreSnapshot = { apps: [entry("notes", true)], installedIds: ["notes"] };
   const available: LocalAppStoreSnapshot = { apps: [entry("focus", false)], installedIds: [] };

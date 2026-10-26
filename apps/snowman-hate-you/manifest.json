@@ -1,0 +1,9 @@
+{
+  "id": "snowman-hate-you",
+  "name": "Snowman Hate You",
+  "version": "1.0.0",
+  "description": "A short, original winter rage-platformer full of treacherous snowmen.",
+  "icon": "snowman",
+  "type": "internal",
+  "entry": "snowman-hate-you"
+}

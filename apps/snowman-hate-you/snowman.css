@@ -1,0 +1,22 @@
+.snowman-game { display: grid; gap: 10px; }
+.snowman-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.snowman-kicker { color: #7892a1; font-size: 8px; font-weight: 700; letter-spacing: 1.4px; }
+.snowman-head h2 { margin: 2px 0 0; color: #e8f2f7; font: 600 18px Manrope,sans-serif; }
+.snowman-head h2 span { color: #70dcf1; }
+.snowman-stats { display: flex; gap: 12px; }
+.snowman-stats div { display: grid; gap: 2px; text-align: right; }
+.snowman-stats small { color: #728392; font-size: 7px; font-weight: 700; letter-spacing: .8px; }
+.snowman-stats strong { color: #c3edf3; font: 700 13px Manrope,sans-serif; font-variant-numeric: tabular-nums; }
+.snowman-field { position: relative; overflow: hidden; border: 1px solid #293d49; border-radius: 10px; background: #0a1520; box-shadow: inset 0 0 26px rgba(77,161,190,.1); }
+.snowman-field canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 8.75; }
+.snowman-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 16px; background: rgba(5,11,17,.78); text-align: center; backdrop-filter: blur(2px); }
+.snowman-overlay strong { color: #eaf5fa; font: 600 18px Manrope,sans-serif; }
+.snowman-overlay span { max-width: 370px; color: #9aabb8; font-size: 10px; line-height: 1.5; }
+.snowman-overlay button,.snowman-controls button { min-height: 32px; padding: 7px 12px; border: 1px solid rgba(92,216,236,.32); border-radius: 7px; color: #a3e8f0; background: rgba(59,154,173,.13); font: 600 9px 'DM Sans',sans-serif; cursor: pointer; }
+.snowman-overlay button:hover,.snowman-controls button:hover { background: rgba(59,154,173,.26); }
+.snowman-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.snowman-controls small { color: #798b98; font-size: 8px; text-align: center; }
+.snowman-pad { display: flex; gap: 5px; }
+.snowman-pad button { min-width: 36px; touch-action: none; user-select: none; }
+.snowman-pad .snowman-jump { min-width: 64px; }
+@media (max-width: 520px) { .snowman-controls { flex-wrap: wrap; justify-content: center; }.snowman-controls small { order: 2; flex-basis: 100%; }.snowman-pad button { min-height: 38px; } }

@@ -15,6 +15,7 @@ const SUPPORTED: &[(&str, &str, &str)] = &[
     ("snake", "snake", "internal"),
     ("pong", "pong", "internal"),
     ("space-invaders", "space-invaders", "internal"),
+    ("snowman-hate-you", "snowman-hate-you", "internal"),
     ("roadwatch", "roadwatch", "internal"),
     ("radio", "radio", "internal"),
 ];
@@ -268,8 +269,18 @@ fn validate_manifest(manifest: &AppManifest) -> Result<(), String> {
     if !bounded_text(&manifest.description, 1, 240) {
         return Err("Beschreibung muss 1 bis 240 Zeichen lang sein.".into());
     }
-    if !["settings", "note", "spark", "snake", "pong", "invaders", "roadwatch", "radio"]
-        .contains(&manifest.icon.as_str())
+    if ![
+        "settings",
+        "note",
+        "spark",
+        "snake",
+        "pong",
+        "invaders",
+        "snowman",
+        "roadwatch",
+        "radio",
+    ]
+    .contains(&manifest.icon.as_str())
     {
         return Err("Dieses Icon wird nicht unterstützt.".into());
     }
@@ -402,6 +413,21 @@ mod tests {
             icon: "invaders".into(),
             app_type: "internal".into(),
             entry: "space-invaders".into(),
+        };
+        assert!(validate_manifest(&manifest).is_ok());
+    }
+
+    #[test]
+    fn accepts_registered_snowman_hate_you_manifest_and_icon() {
+        let manifest = AppManifest {
+            id: "snowman-hate-you".into(),
+            name: "Snowman Hate You".into(),
+            version: "1.0.0".into(),
+            description: "A short, original winter rage-platformer full of treacherous snowmen."
+                .into(),
+            icon: "snowman".into(),
+            app_type: "internal".into(),
+            entry: "snowman-hate-you".into(),
         };
         assert!(validate_manifest(&manifest).is_ok());
     }
