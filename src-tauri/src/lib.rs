@@ -4,6 +4,7 @@ mod hotkey;
 mod right_control;
 mod radio;
 mod roadwatch;
+mod spotify;
 mod window_control;
 
 use app_catalog::{AppStoreSnapshot, scan_apps_dir, set_installed_ids, validate_installable};
@@ -57,7 +58,9 @@ fn load_local_apps(
     store: State<'_, ConfigStore>,
 ) -> Result<AppStoreSnapshot, String> {
     let root = app_catalog::resolve_apps_dir(&app)?;
-    scan_apps_dir(&root, &store.config().installed_apps)
+    let mut snapshot = scan_apps_dir(&root, &store.config().installed_apps)?;
+    spotify::filter_catalog(&mut snapshot, spotify::is_enabled(&app));
+    Ok(snapshot)
 }
 
 #[tauri::command]
@@ -68,6 +71,7 @@ fn install_local_app(
 ) -> Result<AppStoreSnapshot, String> {
     let root = app_catalog::resolve_apps_dir(&app)?;
     let mut snapshot = scan_apps_dir(&root, &store.config().installed_apps)?;
+    spotify::filter_catalog(&mut snapshot, spotify::is_enabled(&app));
     validate_installable(&snapshot, &id)?;
     let installed_ids = store.install_app(&id)?;
     set_installed_ids(&mut snapshot, installed_ids);
@@ -82,6 +86,7 @@ fn uninstall_local_app(
 ) -> Result<AppStoreSnapshot, String> {
     let root = app_catalog::resolve_apps_dir(&app)?;
     let mut snapshot = scan_apps_dir(&root, &store.config().installed_apps)?;
+    spotify::filter_catalog(&mut snapshot, spotify::is_enabled(&app));
     let installed_ids = store.uninstall_app(&id)?;
     set_installed_ids(&mut snapshot, installed_ids);
     Ok(snapshot)
@@ -250,6 +255,7 @@ pub fn run() {
         tauri::Builder::default()
             .plugin(tauri_plugin_opener::init())
             .plugin(tauri_plugin_updater::Builder::new().build())
+            .manage(spotify::SpotifyState::new())
             .invoke_handler(tauri::generate_handler![
                 load_phone_config,
                 save_user_settings,
@@ -260,6 +266,18 @@ pub fn run() {
                 uninstall_local_app,
                 radio_search_stations,
                 radio_resolve_stream,
+                spotify::spotify_status,
+                spotify::spotify_connect,
+                spotify::spotify_cancel_connect,
+                spotify::spotify_disconnect,
+                spotify::spotify_sdk_token,
+                spotify::spotify_invalidate_token,
+                spotify::spotify_profile,
+                spotify::spotify_playlists,
+                spotify::spotify_transfer_playback,
+                spotify::spotify_play_context,
+                spotify::spotify_set_shuffle,
+                spotify::spotify_set_repeat,
                 set_view_mode,
                 set_overlay_hotkey,
                 exit_phone

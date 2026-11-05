@@ -1,0 +1,9 @@
+{
+  "id": "spotify-player",
+  "name": "Spotify",
+  "version": "0.1.0",
+  "description": "Personal build: play Spotify Premium music inside LegionOS with the official Web Playback SDK.",
+  "icon": "music",
+  "type": "internal",
+  "entry": "spotify-player"
+}

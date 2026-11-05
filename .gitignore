@@ -53,3 +53,7 @@ dist-ssr/
 
 # SpotifySoloist mit lokalen Cache- und Token-Dateien
 SpotifySoloist/
+
+# Personal Spotify build: local Client ID must never be committed or bundled
+spotify.local.json
+**/spotify.local.json

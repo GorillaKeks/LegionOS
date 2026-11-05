@@ -1,6 +1,6 @@
-export type AppId = "settings" | "notes" | "demo" | "focus" | "snake" | "pong" | "space-invaders" | "snowman-hate-you" | "roadwatch" | "radio";
+export type AppId = "settings" | "notes" | "demo" | "focus" | "snake" | "pong" | "space-invaders" | "snowman-hate-you" | "roadwatch" | "radio" | "spotify-player";
 export type InternalAppId = AppId;
-export type AppIcon = "settings" | "note" | "spark" | "snake" | "pong" | "invaders" | "snowman" | "roadwatch" | "radio";
+export type AppIcon = "settings" | "note" | "spark" | "snake" | "pong" | "invaders" | "snowman" | "roadwatch" | "radio" | "music";
 
 export type AppDefinition = {
   name: string;
@@ -20,6 +20,7 @@ export const appInfo: Record<AppId, AppDefinition> = {
   "snowman-hate-you": { name: "Snowman Hate You", subtitle: "Ein winterlicher Weg voller hinterhältiger Schneemänner", icon: "snowman", color: "cyan" },
   roadwatch: { name: "RoadWatch", subtitle: "Live VTC- und Spielerübersicht", icon: "roadwatch", color: "cyan" },
   radio: { name: "Radio", subtitle: "Internetradiosender entdecken und hören", icon: "radio", color: "cyan" },
+  "spotify-player": { name: "Spotify", subtitle: "Persönlicher Spotify-Player", icon: "music", color: "cyan" },
 };
 
 export function isAppId(value: string): value is AppId {

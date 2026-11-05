@@ -18,6 +18,7 @@ const SUPPORTED: &[(&str, &str, &str)] = &[
     ("snowman-hate-you", "snowman-hate-you", "internal"),
     ("roadwatch", "roadwatch", "internal"),
     ("radio", "radio", "internal"),
+    ("spotify-player", "spotify-player", "internal"),
 ];
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -279,6 +280,7 @@ fn validate_manifest(manifest: &AppManifest) -> Result<(), String> {
         "snowman",
         "roadwatch",
         "radio",
+        "music",
     ]
     .contains(&manifest.icon.as_str())
     {
@@ -442,6 +444,20 @@ mod tests {
             icon: "radio".into(),
             app_type: "internal".into(),
             entry: "radio".into(),
+        };
+        assert!(validate_manifest(&manifest).is_ok());
+    }
+
+    #[test]
+    fn accepts_registered_spotify_player_manifest_and_icon() {
+        let manifest = AppManifest {
+            id: "spotify-player".into(),
+            name: "Spotify".into(),
+            version: "0.1.0".into(),
+            description: "Personal Spotify player".into(),
+            icon: "music".into(),
+            app_type: "internal".into(),
+            entry: "spotify-player".into(),
         };
         assert!(validate_manifest(&manifest).is_ok());
     }

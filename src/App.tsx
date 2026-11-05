@@ -14,6 +14,8 @@ import SnowmanHateYouApp from "../apps/snowman-hate-you/SnowmanHateYouApp";
 import RoadWatchApp from "../apps/roadwatch/RoadWatchApp";
 import RadioApp from "../apps/radio/RadioApp";
 import { RadioPlaybackProvider, useRadioPlayback } from "../apps/radio/RadioPlayback";
+import SpotifyApp from "../apps/spotify/SpotifyApp";
+import { closeSpotifyApp } from "../apps/spotify/player.ts";
 import { initialWindowState, selectOpenAppIcons, windowReducer } from "./windowManager";
 import type { WindowPosition, WindowSize } from "./windowManager";
 import { getGreeting } from "./greeting";
@@ -30,7 +32,7 @@ type WindowDrag =
   | { kind: "resize"; windowId: string; pointerId: number; edge: ResizeEdge; startX: number; startY: number; startWidth: number; startHeight: number; pointerX: number; pointerY: number };
 const defaultSettings: UserSettings = { quietMode: false, accentOn: true, truckersmpId: "", vtcId: "", language: "en" };
 
-type IconName = "settings" | "note" | "spark" | "snake" | "pong" | "invaders" | "snowman" | "roadwatch" | "radio" | "chevron" | "close" | "minus" | "home" | "grid" | "sun" | "sunset" | "moon" | "check" | "power";
+type IconName = "settings" | "note" | "spark" | "snake" | "pong" | "invaders" | "snowman" | "roadwatch" | "radio" | "music" | "chevron" | "close" | "minus" | "home" | "grid" | "sun" | "sunset" | "moon" | "check" | "power";
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
@@ -44,6 +46,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
     grid: <><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></>,
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></>,
     sunset: <><path d="M3 18h18M5 14a7 7 0 0 1 14 0M12 2v3m-7 1 2 2m12-2-2 2m-8 8h2m2 0h2"/></>,
+    music: <><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></>,
     moon: <path d="M20.9 13A8.5 8.5 0 0 1 11 3.1 8.5 8.5 0 1 0 20.9 13Z"/>, check: <path d="m5 12 4 4L19 6"/>, power: <><path d="M12 2v10"/><path d="M6.2 5.8a8 8 0 1 0 11.6 0"/></>,
   };
   return <svg {...common}>{paths[name]}</svg>;
@@ -277,6 +280,7 @@ function AppContent() {
       setAppStore(snapshot);
       if (!install) {
         if (id === "radio") stopPlayback();
+        if (id === "spotify-player") closeSpotifyApp();
         const session = windowState.windows.find((window) => window.appId === id);
         if (session) dispatch({ type: "close", id: session.id });
       }
@@ -705,7 +709,7 @@ function AppContent() {
           <div className={`window-titlebar${mode === "tablet" ? " window-titlebar-draggable" : ""}`} onPointerDown={(event) => handleWindowPointerDown(shownWindow.id, event)} onPointerMove={handleWindowPointerMove} onPointerUp={handleWindowPointerEnd} onPointerCancel={handleWindowPointerEnd}>
             <div className="window-app-mark"><Icon name={getAppInfo(shownWindow.appId).icon} size={16}/></div>
             <div className="window-title"><strong>{getAppInfo(shownWindow.appId).name}</strong><span>{getAppInfo(shownWindow.appId).subtitle}</span></div>
-            <div className="window-actions"><button onClick={() => dispatch({ type: "minimize", id: shownWindow.id })} aria-label={t(language, "window.minimize")}><Icon name="minus" size={16}/></button><button className="window-close" onClick={() => { if (shownWindow.appId === "radio") stopPlayback(); dispatch({ type: "close", id: shownWindow.id }); }} aria-label={t(language, "window.close")}><Icon name="close" size={16}/></button></div>
+            <div className="window-actions"><button onClick={() => dispatch({ type: "minimize", id: shownWindow.id })} aria-label={t(language, "window.minimize")}><Icon name="minus" size={16}/></button><button className="window-close" onClick={() => { if (shownWindow.appId === "radio") stopPlayback(); if (shownWindow.appId === "spotify-player") closeSpotifyApp(); dispatch({ type: "close", id: shownWindow.id }); }} aria-label={t(language, "window.close")}><Icon name="close" size={16}/></button></div>
           </div>
           <div className="window-content">
             {shownWindow.appId === "settings" && <div className="settings-view"><div className="window-section-heading"><span className="section-kicker">{t(language, "settings.kicker")}</span><h2>{t(language, "settings.title")}</h2><p>{t(language, "settings.subtitle")}</p></div>
@@ -738,6 +742,7 @@ function AppContent() {
             {shownWindow.appId === "snowman-hate-you" && <SnowmanHateYouApp active={isActive} language={language}/>}
             {shownWindow.appId === "roadwatch" && <RoadWatchApp active={isActive} truckersmpId={settings.truckersmpId} vtcId={settings.vtcId} language={language} onOpenSettings={() => openApp("settings")}/>}
             {shownWindow.appId === "radio" && <RadioApp language={language}/>}
+            {shownWindow.appId === "spotify-player" && <SpotifyApp language={language}/>}
           </div>
           {mode === "tablet" && (["n", "s", "e", "w", "ne", "nw", "se", "sw"] as const).map((edge) => <div
             key={edge}

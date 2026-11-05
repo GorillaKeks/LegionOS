@@ -18,7 +18,7 @@ Jeder direkte Unterordner enthält genau eine `manifest.json` mit diesen Feldern
 }
 ```
 
-IDs, Typen und Einstiegspunkte müssen im Programm registriert sein. Interne Apps verwenden fest eingebundene LegionOS-Komponenten; Manifestwerte können keine Programme oder Pfade vorgeben. Unterstützte Icons sind `settings`, `note`, `spark`, `snake`, `pong`, `invaders`, `snowman`, `roadwatch` und `radio`. Es werden keine Skripte oder beliebigen Einstiegspfade aus Manifesten geladen.
+IDs, Typen und Einstiegspunkte müssen im Programm registriert sein. Interne Apps verwenden fest eingebundene LegionOS-Komponenten; Manifestwerte können keine Programme oder Pfade vorgeben. Unterstützte Icons sind `settings`, `note`, `spark`, `snake`, `pong`, `invaders`, `snowman`, `roadwatch`, `radio` und `music`. Es werden keine Skripte oder beliebigen Einstiegspfade aus Manifesten geladen.
 
 Manifeste müssen gültiges UTF-8-JSON sein und höchstens 64 KiB umfassen. Unbekannte Felder, ungültige oder doppelte IDs, ungültige SemVer-Versionen und nicht unterstützte Typen/Einstiegspunkte werden abgewiesen. Der Katalog zeigt solche Einträge mit einer Fehlermeldung, ohne den Start von LegionOS zu verhindern.
 
@@ -36,6 +36,7 @@ Installierte App-IDs werden in `phone.json` unter `installedApps` gespeichert. N
 - `snowman-hate-you`: Snowman Hate You (zunächst nicht installiert)
 - `roadwatch`: RoadWatch Live-VTC-Übersicht (zunächst nicht installiert)
 - `radio`: Internetradio-Verzeichnis und Player (zunächst nicht installiert)
+- `spotify-player` (Ordner `apps/spotify/`): persönlicher Spotify-Player; nur sichtbar, wenn eine lokale, Git-ignorierte `spotify.local.json` vorhanden ist (siehe `apps/spotify/README.md`)
 
 Snake verwendet die fest registrierte interne Komponente `apps/snake/SnakeApp.tsx`; die Spielregeln liegen in `apps/snake/game.ts`. Der persönliche Rekord wird im lokalen WebView-Speicher unter `legion-os.snake.high-score.v1` gespeichert.
 
