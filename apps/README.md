@@ -1,51 +1,51 @@
-# Lokaler App-Katalog
+# Local App Catalog
 
-LegionOS liest App-Manifeste ausschließlich aus diesem Projektordner. Im Entwicklungsmodus wird der `apps/`-Ordner neben `src-tauri/` verwendet. Gebaute Anwendungen enthalten denselben Ordner als Tauri-Ressource.
+LegionOS reads app manifests only from this project directory. In development mode, it uses the `apps/` folder next to `src-tauri/`. Packaged applications include the same folder as a Tauri resource.
 
-## Manifestformat
+## Manifest format
 
-Jeder direkte Unterordner enthält genau eine `manifest.json` mit diesen Feldern:
+Each direct subfolder contains one `manifest.json` with these fields:
 
 ```json
 {
   "id": "snake",
   "name": "Snake",
   "version": "1.0.0",
-  "description": "Klassisches Snake im futuristischen Legion-Design.",
+  "description": "Classic Snake with a futuristic Legion look.",
   "icon": "snake",
   "type": "internal",
   "entry": "snake"
 }
 ```
 
-IDs, Typen und Einstiegspunkte müssen im Programm registriert sein. Interne Apps verwenden fest eingebundene LegionOS-Komponenten; Manifestwerte können keine Programme oder Pfade vorgeben. Unterstützte Icons sind `settings`, `note`, `spark`, `snake`, `pong`, `invaders`, `snowman`, `roadwatch`, `radio` und `music`. Es werden keine Skripte oder beliebigen Einstiegspfade aus Manifesten geladen.
+IDs, types, and entry points must be registered in the program. Internal apps use built-in LegionOS components; manifest values cannot specify programs or paths. Supported icons are `settings`, `note`, `spark`, `snake`, `pong`, `invaders`, `snowman`, `roadwatch`, `radio`, and `music`. Manifests cannot load scripts or arbitrary entry paths.
 
-Manifeste müssen gültiges UTF-8-JSON sein und höchstens 64 KiB umfassen. Unbekannte Felder, ungültige oder doppelte IDs, ungültige SemVer-Versionen und nicht unterstützte Typen/Einstiegspunkte werden abgewiesen. Der Katalog zeigt solche Einträge mit einer Fehlermeldung, ohne den Start von LegionOS zu verhindern.
+Manifests must be valid UTF-8 JSON and no larger than 64 KiB. Unknown fields, invalid or duplicate IDs, invalid SemVer versions, and unsupported types or entry points are rejected. The catalog displays invalid entries with an error message without preventing LegionOS from starting.
 
-Installierte App-IDs werden in `phone.json` unter `installedApps` gespeichert. Namen, Beschreibungen und Versionen werden bei jedem Start erneut aus den lokalen Manifesten gelesen.
+Installed app IDs are saved in `phone.json` under `installedApps`. Names, descriptions, and versions are read from the local manifests again at every startup.
 
-## Registrierte Apps
+## Registered apps
 
-- `settings`: Einstellungen
-- `notes`: Notizen
+- `settings`: Settings
+- `notes`: Notes
 - `demo`: Demo
-- `focus`: Fokus
-- `snake`: Snake Arcade (zunächst nicht installiert)
-- `pong`: Pong gegen die LegionOS-KI (zunächst nicht installiert)
-- `space-invaders`: Space Invaders Retro-Arcade-Shooter (zunächst nicht installiert)
-- `snowman-hate-you`: Snowman Hate You (zunächst nicht installiert)
-- `roadwatch`: RoadWatch Live-VTC-Übersicht (zunächst nicht installiert)
-- `radio`: Internetradio-Verzeichnis und Player (zunächst nicht installiert)
-- `spotify-player` (Ordner `apps/spotify/`): persönlicher Spotify-Player; nur sichtbar, wenn eine lokale, Git-ignorierte `spotify.local.json` vorhanden ist (siehe `apps/spotify/README.md`)
+- `focus`: Focus
+- `snake`: Snake Arcade (not installed by default)
+- `pong`: Pong against the LegionOS AI (not installed by default)
+- `space-invaders`: Space Invaders retro arcade shooter (not installed by default)
+- `snowman-hate-you`: Snowman Hate You (not installed by default)
+- `roadwatch`: RoadWatch live VTC overview (not installed by default)
+- `radio`: Internet radio directory and player (not installed by default)
+- `spotify-player` (folder `apps/spotify/`): personal Spotify player; visible only when a local, Git-ignored `spotify.local.json` exists (see `apps/spotify/README.md`)
 
-Snake verwendet die fest registrierte interne Komponente `apps/snake/SnakeApp.tsx`; die Spielregeln liegen in `apps/snake/game.ts`. Der persönliche Rekord wird im lokalen WebView-Speicher unter `legion-os.snake.high-score.v1` gespeichert.
+Snake uses the fixed, registered internal component `apps/snake/SnakeApp.tsx`; its game rules are in `apps/snake/game.ts`. The personal high score is stored in local WebView storage under `legion-os.snake.high-score.v1`.
 
-Pong verwendet die fest registrierte interne Komponente `apps/pong/PongApp.tsx`; Bewegung, Kollisionen und Punktestand liegen in `apps/pong/game.ts`. Der persönliche Rekord wird lokal unter `legion-os.pong.best-score.v1` gespeichert.
+Pong uses the fixed, registered internal component `apps/pong/PongApp.tsx`; movement, collisions, and scoring are in `apps/pong/game.ts`. The personal high score is stored locally under `legion-os.pong.best-score.v1`.
 
-Space Invaders verwendet die fest registrierte interne Komponente `apps/space-invaders/SpaceInvadersApp.tsx`; Bewegung, Treffer, Gegnerformation, Bosskampf und Spielzustand liegen in `apps/space-invaders/game.ts`. Der persönliche Rekord wird lokal unter `legion-os.space-invaders.best-score.v1` gespeichert.
+Space Invaders uses the fixed, registered internal component `apps/space-invaders/SpaceInvadersApp.tsx`; movement, hits, enemy formations, boss fights, and game state are in `apps/space-invaders/game.ts`. The personal high score is stored locally under `legion-os.space-invaders.best-score.v1`.
 
-Snowman Hate You ist ein eigenständiger 2D-Winter-Rage-Plattformer mit Sprüngen, Abgründen und Schneeball werfenden Schneemännern. Die fest registrierte interne Komponente liegt in `apps/snowman-hate-you/SnowmanHateYouApp.tsx`; Bewegung und Kollisionsregeln liegen in `game.ts`. Die weiteste Strecke wird lokal unter `legion-os.snowman-hate-you.best-distance.v1` gespeichert.
+Snowman Hate You is a standalone 2D winter rage platformer with jumps, gaps, and snowmen that throw snowballs. Its fixed, registered internal component is in `apps/snowman-hate-you/SnowmanHateYouApp.tsx`; movement and collision rules are in `game.ts`. The farthest distance is stored locally under `legion-os.snowman-hate-you.best-distance.v1`.
 
-RoadWatch ist als interne LegionOS-Komponente eingebettet. Die TruckersMP-ID und VTC-ID werden in den LegionOS-Einstellungen gespeichert und für die TruckersMP- und ETS2Map-API verwendet. Die Datenabfrage läuft über Rust; das RoadWatch-Fenster bleibt ein internes React-Fenster und benötigt keine separate RoadWatch-Installation.
+RoadWatch is embedded as an internal LegionOS component. The TruckersMP ID and VTC ID are stored in LegionOS settings and used with the TruckersMP and ETS2Map APIs. Rust fetches the data; the RoadWatch window remains an internal React window and does not require a separate RoadWatch installation.
 
-Radio fragt das Radio-Browser-Verzeichnis über einen Rust-Client mit aussagekräftigem User-Agent ab, löst die Wiedergabe über den Sender-Klickzähler auf und spielt den zurückgegebenen HTTP(S)-Stream in einem dauerhaft gemounteten LegionOS-Audioplayer ab. Daher läuft Musik auch bei minimiertem oder inaktivem Radio-Fenster weiter; beim Schließen oder Deinstallieren von Radio wird die Wiedergabe beendet. Verfügbarkeit und unterstützte Formate hängen vom Sender ab; eine zusätzliche Radio-Software oder ein Konto ist nicht erforderlich.
+Radio queries the Radio Browser directory through a Rust client with a descriptive User-Agent, resolves playback through the station click counter, and plays the returned HTTP(S) stream in a persistently mounted LegionOS audio player. Music can therefore continue while the Radio window is minimized or inactive; playback stops when Radio is closed or uninstalled. Availability and supported formats depend on the station. No additional radio software or account is required.

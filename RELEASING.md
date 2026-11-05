@@ -1,53 +1,53 @@
-# Windows-Releases
+# Windows Releases
 
-Windows-x64-Installer werden automatisch aus einem Versions-Tag `vMAJOR.MINOR.PATCH` gebaut und als Entwurf eines GitHub-Releases vorbereitet. Normale Pushes auf `main` erzeugen kein Release; ein Release wird nicht automatisch veröffentlicht.
+Windows x64 installers are built automatically from a version tag named `vMAJOR.MINOR.PATCH` and prepared as a GitHub Release draft. Regular pushes to `main` do not create a release, and releases are not published automatically.
 
-## Version aktualisieren
+## Update the version
 
-Vor dem Release muss dieselbe Programmversion in diesen Projektdateien stehen:
+Before a release, the same application version must appear in these project files:
 
-- `package.json` und beide Versionsfelder in `package-lock.json` (Root und `packages[""]`)
+- `package.json` and both version fields in `package-lock.json` (root and `packages[""]`)
 - `src-tauri/tauri.conf.json`
 - `[package].version` in `src-tauri/Cargo.toml`
-- Paketversion `legionos` in `src-tauri/Cargo.lock`
+- The `legionos` package version in `src-tauri/Cargo.lock`
 
-Die Versionsnummern in `apps/*/manifest.json` sind eigenständige App-Versionen und werden nur erhöht, wenn sich die jeweilige lokale App ändert. Sie müssen nicht der Desktop-App-Version entsprechen.
+Versions in `apps/*/manifest.json` are independent app versions. Increase one only when that local app changes; it does not need to match the desktop app version.
 
-Zum Beispiel für `v0.2.0`:
+For example, to release `v0.2.0`:
 
-1. Aktualisiere die Projektversionen auf `0.2.0`. `npm version 0.2.0 --no-git-tag-version` aktualisiert `package.json` und `package-lock.json`; danach Tauri und Cargo-Version aktualisieren.
-2. Führe `cargo check --manifest-path src-tauri/Cargo.toml` aus, damit Cargo die Paketversion in `src-tauri/Cargo.lock` nachzieht.
-3. Prüfe die Übereinstimmung lokal mit `node tools/check-release-version.mjs v0.2.0` und führe `npm test`, `npm run build` sowie `npm run build:windows` aus.
-4. Committe und pushe die Versionsänderung. Erstelle danach den Tag auf diesem Commit und pushe ihn:
+1. Update the project versions to `0.2.0`. `npm version 0.2.0 --no-git-tag-version` updates `package.json` and `package-lock.json`; then update the Tauri and Cargo versions.
+2. Run `cargo check --manifest-path src-tauri/Cargo.toml` so Cargo updates the package version in `src-tauri/Cargo.lock`.
+3. Check version consistency with `node tools/check-release-version.mjs v0.2.0`, then run `npm test`, `npm run build`, and `npm run build:windows`.
+4. Commit and push the version changes. Then create and push the tag on that commit:
 
    ```powershell
    git tag v0.2.0
    git push origin v0.2.0
    ```
 
-Der Workflow prüft die Tag-Version gegen alle Desktop-Manifeste und Lockfiles, testet und baut die Anwendung auf `windows-latest`, erstellt die signierten Installer-Aliase, prüft Signaturen und Update-Manifest und lädt fünf Release-Assets in einen Draft hoch. Nach der Assetprüfung bleibt der Draft unveröffentlicht. Schlägt ein Test, Build oder Artefaktschritt fehl, wird der Release-Job nicht ausgeführt; bei einem Fehler während des Uploads bleibt der Release-Entwurf unveröffentlicht.
+The workflow checks the tag version against all desktop manifests and lockfiles, tests and builds the app on `windows-latest`, creates signed installer aliases, verifies signatures and the update manifest, and uploads five release assets to a draft. The draft remains unpublished after the assets are checked. If a test, build, or artifact step fails, the release job does not run; if an upload fails, the draft remains unpublished.
 
-## Repository-Voraussetzungen
+## Repository requirements
 
-- GitHub Actions muss für `GorillaKeks/LegionOS` aktiviert sein und Push-Ereignisse für Tags zulassen.
-- Die Organisations-/Repository-Richtlinie muss dem Workflow `GITHUB_TOKEN` die deklarierte `contents: write`-Berechtigung für den Release-Job erlauben. Der Build-Job hat nur `contents: read`.
-- Die referenzierten Actions und GitHub CLI-Aufrufe müssen durch die Actions-Richtlinie des Repositories erlaubt sein.
-- Es wird kein persönliches Token benötigt. Der Workflow wird nicht bei normalen Pushes auf `main` ausgelöst.
+- GitHub Actions must be enabled for `GorillaKeks/LegionOS`, with push events for tags allowed.
+- The organization or repository policy must grant the workflow's `GITHUB_TOKEN` the declared `contents: write` permission for the release job. The build job has only `contents: read`.
+- The repository's Actions policy must allow the referenced Actions and GitHub CLI calls.
+- No personal token is required. The workflow is not triggered by regular pushes to `main`.
 
-Der Workflow baut die signierten Installer und den Updater-Feed. Er erstellt nach erfolgreicher Prüfung einen GitHub-Release-Entwurf, veröffentlicht ihn jedoch nicht automatisch.
+The workflow builds the signed installers and updater feed. After successful validation, it creates a GitHub Release draft but does not publish it automatically.
 
-## Release-Artefakte
+## Release artifacts
 
-## Signierter Tauri-Updater
+## Signed Tauri updater
 
-LegionOS 1.0.3 enthält den Tauri-Updater. Die Prüfung wird ausschließlich manuell in den Einstellungen gestartet; ein Download und eine Installation benötigen eine weitere Bestätigung. Der Client prüft die Minisign-Signatur und die signierte Versionsbindung. Ohne gültige Signatur wird das Update abgelehnt.
+LegionOS 1.0.3 includes the Tauri updater. Checks are started manually in Settings; downloading and installing an update require a further confirmation. The client verifies the Minisign signature and its signed version binding. Updates without a valid signature are rejected.
 
-Der öffentliche Schlüssel steht in `src-tauri/tauri.conf.json`. Der private Schlüssel bleibt außerhalb des Repositorys unter `%USERPROFILE%\.tauri\LegionOS.key`. GitHub Actions erhält `TAURI_SIGNING_PRIVATE_KEY` und `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` nur im Windows-Installer-Build-Schritt. Die Werte dürfen weder in Projektdateien noch in Logs oder Artefakte kopiert werden.
+The public key is in `src-tauri/tauri.conf.json`. Keep the private key outside the repository at `%USERPROFILE%\.tauri\LegionOS.key`. GitHub Actions receives `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` only during the Windows installer build step. Never copy these values into project files, logs, or artifacts.
 
-Der Release-Build erzeugt signierte `.sig`-Dateien für NSIS und MSI und ein `latest.json`. Für automatische Updates ordnet das Manifest `windows-x86_64` dem NSIS-Installer `LegionOS_x64-setup.exe` zu. MSI bleibt für Neuinstallationen verfügbar; MSI-Selbstaktualisierung ist nicht zugesichert.
+The release build creates signed `.sig` files for NSIS and MSI, plus a `latest.json` file. For automatic updates, the manifest maps `windows-x86_64` to the NSIS installer `LegionOS_x64-setup.exe`. MSI remains available for new installations; MSI self-updating is not guaranteed.
 
-Der Workflow erstellt nach erfolgreichem Build und Asset-Prüfung ausschließlich einen GitHub-Release-Entwurf und veröffentlicht ihn nicht. Prüfe den Entwurf, die Assets und den Updateablauf mit einer Testinstallation, bevor du den Entwurf manuell veröffentlichst. Die URL `releases/latest/download/latest.json` wird erst auf einen veröffentlichten neuesten Release auflösen.
+After a successful build and asset check, the workflow creates only a GitHub Release draft and does not publish it. Test the draft, its assets, and the update flow with a test installation before publishing it manually. The URL `releases/latest/download/latest.json` resolves only after the latest release has been published.
 
-Installationen von 1.0.0 enthalten noch keinen Updater. Sie müssen einmal manuell auf eine aktuelle Version mit Updater aktualisiert werden. Erst danach kann die manuelle Updateprüfung nach neueren signierten Versionen suchen.
+Installations of version 1.0.0 do not include an updater. They must first be updated manually to a current version that includes one. Only then can the manual update check find newer signed versions.
 
-`upload-artifact` bewahrt die Ordner `nsis/` und `msi/`. Das geprüfte Artefakt enthält die beiden Installer, beide `.sig`-Dateien und `latest.json`. Der Release-Job prüft alle fünf Dateien, lädt sie in einen Entwurf hoch und lässt diesen unveröffentlicht. Prüfe den Entwurf und veröffentliche ihn erst nach manueller Freigabe.
+`upload-artifact` preserves the `nsis/` and `msi/` folders. The verified artifact contains both installers, both `.sig` files, and `latest.json`. The release job checks all five files, uploads them to a draft, and leaves it unpublished. Review the draft and publish it only after manual approval.

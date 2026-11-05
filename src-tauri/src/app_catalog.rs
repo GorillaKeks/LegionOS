@@ -63,9 +63,9 @@ pub fn resolve_apps_dir(app: &AppHandle) -> Result<PathBuf, String> {
 
     app.path()
         .resolve("apps", BaseDirectory::Resource)
-        .map_err(|error| format!("Gebündelter apps-Ordner konnte nicht aufgelöst werden: {error}"))?
+        .map_err(|error| format!("Could not resolve the bundled apps directory: {error}"))?
         .canonicalize()
-        .map_err(|error| format!("Gebündelter apps-Ordner ist nicht verfügbar: {error}"))
+        .map_err(|error| format!("The bundled apps directory is unavailable: {error}"))
 }
 
 fn resolve_dev_apps_dir(executable: &Path) -> Option<PathBuf> {
@@ -83,20 +83,20 @@ fn resolve_dev_apps_dir(executable: &Path) -> Option<PathBuf> {
 pub fn scan_apps_dir(root: &Path, installed_ids: &[String]) -> Result<AppStoreSnapshot, String> {
     let root = root
         .canonicalize()
-        .map_err(|error| format!("App-Ordner konnte nicht gelesen werden: {error}"))?;
+        .map_err(|error| format!("Could not read the apps directory: {error}"))?;
     if !root.is_dir() {
-        return Err("Der lokale apps-Pfad ist kein Ordner.".into());
+        return Err("The local apps path is not a directory.".into());
     }
 
     let mut items = Vec::new();
     let directories = fs::read_dir(&root)
-        .map_err(|error| format!("App-Ordner konnte nicht gelesen werden: {error}"))?;
+        .map_err(|error| format!("Could not read the apps directory: {error}"))?;
     for directory in directories {
         let directory = directory
-            .map_err(|error| format!("App-Ordner konnte nicht gelesen werden: {error}"))?;
+            .map_err(|error| format!("Could not read an app directory entry: {error}"))?;
         let file_type = directory
             .file_type()
-            .map_err(|error| format!("App-Ordner konnte nicht geprüft werden: {error}"))?;
+            .map_err(|error| format!("Could not inspect an app directory entry: {error}"))?;
         // Do not follow symlinked folders or read anything outside apps/.
         if !file_type.is_dir() {
             continue;
@@ -108,7 +108,7 @@ pub fn scan_apps_dir(root: &Path, installed_ids: &[String]) -> Result<AppStoreSn
             _ => {
                 items.push(invalid_item(
                     folder,
-                    "App-Ordner liegt außerhalb des lokalen apps-Ordners.",
+                    "The app directory is outside the local apps directory.",
                 ));
                 continue;
             }
@@ -116,7 +116,7 @@ pub fn scan_apps_dir(root: &Path, installed_ids: &[String]) -> Result<AppStoreSn
         if !valid_id(&folder) {
             items.push(invalid_item(
                 folder,
-                "Der Ordnername ist keine gültige App-ID.",
+                "The directory name is not a valid app ID.",
             ));
             continue;
         }
@@ -126,24 +126,24 @@ pub fn scan_apps_dir(root: &Path, installed_ids: &[String]) -> Result<AppStoreSn
             Ok(_) => {
                 items.push(invalid_item(
                     folder,
-                    "manifest.json muss eine normale Datei sein.",
+                    "manifest.json must be a regular file.",
                 ));
                 continue;
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                items.push(invalid_item(folder, "manifest.json fehlt."));
+                items.push(invalid_item(folder, "manifest.json is missing."));
                 continue;
             }
             Err(error) => {
                 items.push(invalid_item(
                     folder,
-                    format!("Manifest konnte nicht geprüft werden: {error}"),
+                    format!("Could not inspect the manifest: {error}"),
                 ));
                 continue;
             }
         };
         if metadata.len() > MAX_MANIFEST_BYTES {
-            items.push(invalid_item(folder, "Manifest ist größer als 64 KiB."));
+            items.push(invalid_item(folder, "The manifest exceeds 64 KiB."));
             continue;
         }
         let canonical_manifest = match manifest_path.canonicalize() {
@@ -151,7 +151,7 @@ pub fn scan_apps_dir(root: &Path, installed_ids: &[String]) -> Result<AppStoreSn
             _ => {
                 items.push(invalid_item(
                     folder,
-                    "Manifest liegt außerhalb seines App-Ordners.",
+                    "The manifest is outside its app directory.",
                 ));
                 continue;
             }
@@ -161,7 +161,7 @@ pub fn scan_apps_dir(root: &Path, installed_ids: &[String]) -> Result<AppStoreSn
             Err(error) => {
                 items.push(invalid_item(
                     folder,
-                    format!("Manifest konnte nicht gelesen werden: {error}"),
+                    format!("Could not read the manifest: {error}"),
                 ));
                 continue;
             }
@@ -171,7 +171,7 @@ pub fn scan_apps_dir(root: &Path, installed_ids: &[String]) -> Result<AppStoreSn
             Err(error) => {
                 items.push(invalid_item(
                     folder,
-                    format!("Manifest ist ungültig: {error}"),
+                    format!("The manifest is invalid: {error}"),
                 ));
                 continue;
             }
@@ -186,7 +186,7 @@ pub fn scan_apps_dir(root: &Path, installed_ids: &[String]) -> Result<AppStoreSn
             Err(error) => {
                 items.push(invalid_item_with_id(
                     folder,
-                    format!("Manifest ist ungültig: {error}"),
+                    format!("The manifest is invalid: {error}"),
                     declared_id,
                 ));
                 continue;
@@ -219,7 +219,7 @@ pub fn scan_apps_dir(root: &Path, installed_ids: &[String]) -> Result<AppStoreSn
             item.manifest = None;
             item.installed = false;
             item.error =
-                Some("Doppelte App-ID im lokalen Katalog; keine der Kopien ist verwendbar.".into());
+                Some("Duplicate app ID in the local catalog; none of the copies can be used.".into());
         }
     }
     items.sort_by(|left, right| left.folder.cmp(&right.folder));
@@ -241,7 +241,7 @@ pub fn validate_installable(snapshot: &AppStoreSnapshot, id: &str) -> Result<(),
         .count();
     if matches != 1 {
         return Err(
-            "Diese App ist ungültig, nicht unterstützt oder ihre ID ist doppelt vorhanden.".into(),
+            "This app is invalid, unsupported, or has a duplicate ID.".into(),
         );
     }
     Ok(())
@@ -259,16 +259,16 @@ pub fn set_installed_ids(snapshot: &mut AppStoreSnapshot, installed_ids: Vec<Str
 
 fn validate_manifest(manifest: &AppManifest) -> Result<(), String> {
     if !valid_id(&manifest.id) {
-        return Err("App-ID muss eine gültige, stabile Kennung sein.".into());
+        return Err("App ID must be a valid, stable identifier.".into());
     }
     if !bounded_text(&manifest.name, 1, 48) {
-        return Err("App-Name muss 1 bis 48 Zeichen lang sein.".into());
+        return Err("App name must be between 1 and 48 characters long.".into());
     }
     if !valid_version(&manifest.version) {
-        return Err("Version muss dem Format MAJOR.MINOR.PATCH entsprechen.".into());
+        return Err("Version must use the MAJOR.MINOR.PATCH format.".into());
     }
     if !bounded_text(&manifest.description, 1, 240) {
-        return Err("Beschreibung muss 1 bis 240 Zeichen lang sein.".into());
+        return Err("Description must be between 1 and 240 characters long.".into());
     }
     if ![
         "settings",
@@ -284,13 +284,13 @@ fn validate_manifest(manifest: &AppManifest) -> Result<(), String> {
     ]
     .contains(&manifest.icon.as_str())
     {
-        return Err("Dieses Icon wird nicht unterstützt.".into());
+        return Err("This icon is not supported.".into());
     }
     if !SUPPORTED.iter().any(|(id, entry, app_type)| {
         *id == manifest.id && *entry == manifest.entry && *app_type == manifest.app_type
     }) {
         return Err(
-            "App-Typ und Einstiegspunkt sind nicht registriert oder passen nicht zur App-ID."
+            "The app type and entry point are not registered or do not match the app ID."
                 .into(),
         );
     }
