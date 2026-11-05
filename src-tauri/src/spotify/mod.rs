@@ -22,6 +22,7 @@ use credentials::KeyringStore;
 pub use error::{ErrorCode, SpotifyError};
 use serde::Serialize;
 use std::{
+    future::Future,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -81,6 +82,35 @@ pub fn is_enabled(app: &AppHandle) -> bool {
     load_config(app).is_ready()
 }
 
+#[tauri::command]
+pub fn spotify_client_id(app: AppHandle) -> String {
+    match load_config(&app) {
+        ConfigState::Ready(config) => config.client_id,
+        ConfigState::Missing | ConfigState::Invalid(_) => String::new(),
+    }
+}
+
+#[tauri::command]
+pub async fn spotify_save_client_id(
+    app: AppHandle,
+    state: State<'_, SpotifyState>,
+    client_id: String,
+) -> Result<String, String> {
+    let client_id = client_id.trim().to_owned();
+    let config_dir = app.path().app_config_dir().map_err(|_| "Spotify settings path is unavailable.".to_string())?;
+    let current = load_config(&app);
+    let (previous_client_id, redirect_port) = match current {
+        ConfigState::Ready(config) => (config.client_id, config.redirect_port),
+        ConfigState::Missing | ConfigState::Invalid(_) => (String::new(), 0),
+    };
+    config::save(&config_dir.join(config::CONFIG_FILE), &client_id, redirect_port)?;
+    if previous_client_id != client_id || client_id.is_empty() {
+        state.login_cancel.store(true, Ordering::SeqCst);
+        let _ = state.tokens.disconnect().await;
+    }
+    Ok(client_id)
+}
+
 /// Hides the Spotify app from the catalog in builds without a local config.
 pub fn filter_catalog(snapshot: &mut crate::app_catalog::AppStoreSnapshot, enabled: bool) {
     if enabled {
@@ -89,6 +119,23 @@ pub fn filter_catalog(snapshot: &mut crate::app_catalog::AppStoreSnapshot, enabl
     snapshot.apps.retain(|item| {
         item.folder != APP_FOLDER && item.manifest.as_ref().is_none_or(|manifest| manifest.id != APP_ID)
     });
+}
+
+async fn retry_missing_device<F, Fut>(mut request: F) -> Result<(), SpotifyError>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<(), SpotifyError>>,
+{
+    for delay_ms in [0, 300, 700, 1_200] {
+        if delay_ms > 0 {
+            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+        }
+        match request().await {
+            Err(error) if error.code == ErrorCode::NoActiveDevice && delay_ms != 1_200 => continue,
+            result => return result,
+        }
+    }
+    Err(ErrorCode::NoActiveDevice.into())
 }
 
 fn ready_config(app: &AppHandle) -> Result<LocalConfig, SpotifyError> {
@@ -222,13 +269,13 @@ pub async fn spotify_playlists(app: AppHandle, state: State<'_, SpotifyState>) -
 #[tauri::command]
 pub async fn spotify_transfer_playback(app: AppHandle, state: State<'_, SpotifyState>, device_id: String, play: bool) -> Result<(), SpotifyError> {
     let config = ready_config(&app)?;
-    state.api.transfer(&state.tokens, &config.client_id, &device_id, play).await
+    retry_missing_device(|| state.api.transfer(&state.tokens, &config.client_id, &device_id, play)).await
 }
 
 #[tauri::command]
 pub async fn spotify_play_context(app: AppHandle, state: State<'_, SpotifyState>, device_id: String, context_uri: String) -> Result<(), SpotifyError> {
     let config = ready_config(&app)?;
-    state.api.play_context(&state.tokens, &config.client_id, &device_id, &context_uri).await
+    retry_missing_device(|| state.api.play_context(&state.tokens, &config.client_id, &device_id, &context_uri)).await
 }
 
 #[tauri::command]

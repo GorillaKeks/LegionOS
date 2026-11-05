@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { localeForLanguage, t, type Language } from "../../src/i18n";
+import { createRefreshController, initialRefreshSnapshot, type RefreshSnapshot } from "./refreshController.ts";
 import "./RoadWatchApp.css";
 
 type RoadWatchMember = {
@@ -34,48 +35,36 @@ type Props = {
 type StatusFilter = "all" | "online" | "offline";
 
 export default function RoadWatchApp({ active, truckersmpId, vtcId, language, onOpenSettings }: Props) {
-  const [data, setData] = useState<RoadWatchData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [snapshot, setSnapshot] = useState<RefreshSnapshot<RoadWatchData>>(initialRefreshSnapshot);
+  const [controller] = useState(() => createRefreshController(() => invoke<RoadWatchData>("load_roadwatch_data"), setSnapshot));
+  const [desktopOnly, setDesktopOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const generation = useRef(0);
-  const requestRunning = useRef(false);
+  const consumer = useRef(0);
+  const { data, loading, lastUpdated } = snapshot;
+  const error = desktopOnly ? t(language, "roadwatch.desktopOnly") : snapshot.error;
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (owner: number) => {
     if (!isTauri()) {
-      setError(t(language, "roadwatch.desktopOnly"));
+      setDesktopOnly(true);
       return;
     }
     if (!vtcId || !truckersmpId) return;
-    if (requestRunning.current) return;
-    requestRunning.current = true;
-    const request = ++generation.current;
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await invoke<RoadWatchData>("load_roadwatch_data");
-      if (generation.current !== request) return;
-      setData(result);
-      setLastUpdated(new Date());
-    } catch (reason) {
-      if (generation.current === request) setError(String(reason));
-    } finally {
-      requestRunning.current = false;
-      if (generation.current === request) setLoading(false);
-    }
-  }, [language, truckersmpId, vtcId]);
+    await controller.refresh(owner);
+  }, [controller, truckersmpId, vtcId]);
 
   useEffect(() => {
     if (!active || !vtcId || !truckersmpId) return;
-    void refresh();
-    const interval = window.setInterval(() => void refresh(), 60_000);
+    const owner = controller.attach();
+    consumer.current = owner;
+    void refresh(owner);
+    const interval = window.setInterval(() => void refresh(owner), 60_000);
     return () => {
       window.clearInterval(interval);
-      generation.current += 1;
+      controller.detach(owner);
+      if (consumer.current === owner) consumer.current = 0;
     };
-  }, [active, refresh, truckersmpId, vtcId]);
+  }, [active, controller, refresh, truckersmpId, vtcId]);
 
   const visibleMembers = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -111,7 +100,7 @@ export default function RoadWatchApp({ active, truckersmpId, vtcId, language, on
   return <section className="roadwatch-app">
     <header className="roadwatch-heading">
       <div><span className="roadwatch-kicker">TRUCKERSMP · VTC LIVE</span><h2>RoadWatch<span>.</span></h2><p>{t(language, "roadwatch.sort")}</p></div>
-      <button type="button" className="roadwatch-refresh" onClick={() => void refresh()} disabled={loading} aria-label={t(language, "roadwatch.refresh")} title={t(language, "roadwatch.refreshNow")}><span className={loading ? "roadwatch-refresh-glyph spinning" : "roadwatch-refresh-glyph"}>↻</span><span>{loading ? t(language, "roadwatch.loading") : t(language, "roadwatch.update")}</span></button>
+      <button type="button" className="roadwatch-refresh" onClick={() => void refresh(consumer.current)} disabled={loading} aria-label={t(language, "roadwatch.refresh")} title={t(language, "roadwatch.refreshNow")}><span className={loading ? "roadwatch-refresh-glyph spinning" : "roadwatch-refresh-glyph"}>↻</span><span>{loading ? t(language, "roadwatch.loading") : t(language, "roadwatch.update")}</span></button>
     </header>
 
     {error && <div className="roadwatch-message roadwatch-error" role="alert">{error}</div>}

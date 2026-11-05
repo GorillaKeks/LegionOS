@@ -85,6 +85,23 @@ pub fn load(paths: &[PathBuf]) -> ConfigState {
     ConfigState::Missing
 }
 
+/// Saves the per-installation Client ID in LegionOS's local application config folder.
+/// An empty ID writes an invalid local entry so it also masks a debug-only repo config.
+pub fn save(path: &Path, client_id: &str, redirect_port: u16) -> Result<(), String> {
+    let client_id = client_id.trim();
+    if !client_id.is_empty() && !valid_client_id(client_id) {
+        return Err("The Client ID must be the 32-character ID from your Spotify Developer Dashboard.".into());
+    }
+    let parent = path.parent().ok_or_else(|| "Spotify settings path is unavailable.".to_string())?;
+    fs::create_dir_all(parent).map_err(|_| "Spotify settings could not be saved.".to_string())?;
+    let contents = serde_json::json!({
+        "clientId": client_id,
+        "redirectPort": redirect_port,
+    });
+    fs::write(path, serde_json::to_vec_pretty(&contents).map_err(|_| "Spotify settings could not be saved.".to_string())?)
+        .map_err(|_| "Spotify settings could not be saved.".to_string())
+}
+
 pub fn parse(bytes: &[u8]) -> ConfigState {
     let bytes = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(bytes);
     let raw: RawConfig = match serde_json::from_slice(bytes) {

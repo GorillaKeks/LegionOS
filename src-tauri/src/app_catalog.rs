@@ -499,7 +499,7 @@ mod tests {
         assert_eq!(notes.len(), 2);
         assert!(
             notes.iter().all(|item| item.manifest.is_none()
-                && item.error.as_deref().unwrap().contains("Doppelte"))
+                && item.error.as_deref().unwrap().contains("Duplicate"))
         );
         assert!(validate_installable(&snapshot, "notes").is_err());
         fs::remove_dir_all(root).unwrap();
@@ -520,7 +520,7 @@ mod tests {
             .collect();
         assert!(
             notes.iter().all(|item| item.manifest.is_none()
-                && item.error.as_deref().unwrap().contains("Doppelte"))
+                && item.error.as_deref().unwrap().contains("Duplicate"))
         );
         fs::remove_dir_all(root).unwrap();
     }

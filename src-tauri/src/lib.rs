@@ -232,6 +232,9 @@ fn set_view_mode(
     window: WebviewWindow,
     store: State<'_, ConfigStore>,
 ) -> Result<(), String> {
+    if mode == ViewMode::Phone {
+        return Err("Der Smartphone-Modus ist in dieser LegionOS-Version deaktiviert.".into());
+    }
     let snapshot = store.snapshot();
     if !snapshot.can_save {
         return Err(snapshot
@@ -267,6 +270,8 @@ pub fn run() {
                 radio_search_stations,
                 radio_resolve_stream,
                 spotify::spotify_status,
+                spotify::spotify_client_id,
+                spotify::spotify_save_client_id,
                 spotify::spotify_connect,
                 spotify::spotify_cancel_connect,
                 spotify::spotify_disconnect,
@@ -285,7 +290,12 @@ pub fn run() {
             .setup(|app| {
                 let config_path = app.path().app_config_dir()?.join("phone.json");
                 let store = ConfigStore::open(config_path).map_err(std::io::Error::other)?;
-                let initial_config = store.config();
+                let mut initial_config = store.config();
+                if initial_config.mode != ViewMode::Tablet {
+                    let _ = store.migrate_phone_mode_to_tablet();
+                    initial_config.mode = ViewMode::Tablet;
+                    initial_config.window_bounds = None;
+                }
                 app.manage(store);
                 app.manage(ActiveHotkey(Mutex::new(None)));
                 app.manage(ToggleDebounce(Mutex::new(None)));

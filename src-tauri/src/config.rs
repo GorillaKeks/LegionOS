@@ -25,8 +25,9 @@ static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ViewMode {
-    #[default]
+    /// Retained for a possible future user-selectable layout; current builds force Tablet.
     Phone,
+    #[default]
     Tablet,
 }
 
@@ -93,7 +94,7 @@ impl Default for PhoneConfig {
     fn default() -> Self {
         Self {
             version: CONFIG_VERSION,
-            mode: ViewMode::Phone,
+            mode: ViewMode::Tablet,
             settings: UserSettings::default(),
             notes: String::new(),
             window_bounds: None,
@@ -276,6 +277,13 @@ impl ConfigStore {
         })
     }
 
+    pub fn migrate_phone_mode_to_tablet(&self) -> Result<(), String> {
+        self.update(|config| {
+            config.mode = ViewMode::Tablet;
+            config.window_bounds = None;
+        })
+    }
+
     pub fn record_window_bounds(&self, bounds: WindowBounds, force: bool) -> Result<(), String> {
         if bounds.width < 200 || bounds.height < 200 {
             return Ok(());
@@ -422,7 +430,7 @@ mod tests {
     fn defaults_are_versioned_and_sensible() {
         let defaults = PhoneConfig::default();
         assert_eq!(defaults.version, CONFIG_VERSION);
-        assert_eq!(defaults.mode, ViewMode::Phone);
+        assert_eq!(defaults.mode, ViewMode::Tablet);
         assert_eq!(
             defaults.settings,
             UserSettings {

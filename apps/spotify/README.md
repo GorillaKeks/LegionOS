@@ -16,25 +16,13 @@ A LegionOS app that plays Spotify Premium music inside the LegionOS WebView2 win
 
 If Spotify rejects the dynamic port, register a fixed one instead, for example `http://127.0.0.1:43821/callback`, and set `"redirectPort": 43821` in the config file.
 
-## 2. Local configuration (never committed, never bundled)
+## 2. Enter the Client ID in LegionOS
 
-Create `spotify.local.json` with this content:
+Open **Settings → Spotify personal player**, paste the 32-character Client ID, and save it. LegionOS stores it in `%APPDATA%\com.phone.overlay\spotify.local.json` on that device. It is not part of `phone.json`, the repository, or the installer. The Client Secret is not needed and must not be entered.
 
-```json
-{
-  "clientId": "YOUR_32_CHARACTER_CLIENT_ID",
-  "redirectPort": 0
-}
-```
+For development, LegionOS also accepts a `spotify.local.json` in the repository root. That file is Git-ignored. The example without a real ID is `spotify.local.example.json`.
 
-LegionOS looks for it in this order:
-
-1. `%APPDATA%\com.phone.overlay\spotify.local.json`. Used by installed builds and `npm run tauri dev`.
-2. `<repository>\spotify.local.json`. Debug builds only.
-
-`spotify.local.json` is listed in `.gitignore`. It is never put in `apps/`, because that folder is bundled into installers. An example without an ID is in `spotify.local.example.json` at the repository root.
-
-**Without a valid config, Spotify is hidden from the App Store.** Builds made elsewhere, such as CI releases, therefore never offer it.
+After saving a valid ID, Spotify appears in the App Store immediately. Clearing the field and saving hides it again and clears the stored Spotify sign-in.
 
 ## 3. Using the app
 

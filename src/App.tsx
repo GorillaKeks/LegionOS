@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import packageMetadata from "../package.json";
 import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 import type { PointerEvent as ReactPointerEvent } from "react";
@@ -54,7 +55,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 
 function AppContent() {
   const { stopPlayback } = useRadioPlayback();
-  const [mode, setMode] = useState<ViewMode>("phone");
+  const [mode, setMode] = useState<ViewMode>("tablet");
   const [activeNav, setActiveNav] = useState<"home" | "store" | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [windowState, dispatch] = useReducer(windowReducer, initialWindowState);
@@ -76,11 +77,15 @@ function AppContent() {
   const [truckersmpIdDraft, setTruckersmpIdDraft] = useState("");
   const [vtcIdDraft, setVtcIdDraft] = useState("");
   const [savedRoadWatchIds, setSavedRoadWatchIds] = useState({ truckersmpId: "", vtcId: "" });
+  const [spotifyClientIdDraft, setSpotifyClientIdDraft] = useState("");
+  const [savedSpotifyClientId, setSavedSpotifyClientId] = useState("");
+  const [spotifyClientIdSaving, setSpotifyClientIdSaving] = useState(false);
+  const [spotifyClientIdError, setSpotifyClientIdError] = useState<string | null>(null);
+  const [spotifyClientIdSaved, setSpotifyClientIdSaved] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [canSave, setCanSave] = useState(true);
   const [persistence, setPersistence] = useState<PersistenceStatus>("loading");
   const [persistenceNotice, setPersistenceNotice] = useState<string | null>(null);
-  const [modeChanging, setModeChanging] = useState(false);
   const [appStore, setAppStore] = useState<LocalAppStoreSnapshot | null>(null);
   const [appStoreLoading, setAppStoreLoading] = useState(true);
   const [appStoreError, setAppStoreError] = useState<string | null>(null);
@@ -133,6 +138,19 @@ function AppContent() {
   }, [loaded]);
 
   useEffect(() => {
+    if (!loaded || !isTauri()) return;
+    let cancelled = false;
+    invoke<string>("spotify_client_id").then((clientId) => {
+      if (cancelled) return;
+      setSpotifyClientIdDraft(clientId);
+      setSavedSpotifyClientId(clientId);
+    }).catch((error: unknown) => {
+      if (!cancelled) setSpotifyClientIdError(String(error));
+    });
+    return () => { cancelled = true; };
+  }, [loaded]);
+
+  useEffect(() => {
     if (!isTauri()) {
       setPersistence("memory");
       setPersistenceNotice(t(settings.language, "persistence.browserPreview"));
@@ -142,7 +160,7 @@ function AppContent() {
     let cancelled = false;
     invoke<ConfigSnapshot>("load_phone_config").then((config) => {
       if (cancelled) return;
-      setMode(config.mode);
+      setMode("tablet");
       setSettings(config.settings);
       setTruckersmpIdDraft(config.settings.truckersmpId);
       setVtcIdDraft(config.settings.vtcId);
@@ -462,33 +480,31 @@ function AppContent() {
     changeSetting({ truckersmpId: truckersmpIdDraft, vtcId: vtcIdDraft });
   };
 
-  const changeMode = async (nextMode: ViewMode) => {
-    if (nextMode === mode || modeChanging) return;
-    if (!isTauri()) {
-      setMode(nextMode);
-      if (nextMode === "phone") {
-        dragRef.current = null;
-        dispatch({ type: "resetPositions" });
-      }
-      setPersistence("memory");
-      return;
-    }
-    if (!canSaveRef.current) {
-      setPersistence("error");
-      return;
-    }
-    setModeChanging(true);
+  const startMainWindowDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!isTauri() || event.pointerType !== "mouse" || event.button !== 0 || !(event.target instanceof Element)) return;
+    if (event.target.closest("button, input, textarea, select, a, [role='button'], [contenteditable='true'], .app-window")) return;
+    void getCurrentWindow().startDragging().catch(() => undefined);
+  };
+
+  const saveSpotifyClientId = async () => {
+    if (!isTauri() || spotifyClientIdSaving) return;
+    const clientId = spotifyClientIdDraft.trim();
+    setSpotifyClientIdSaving(true);
+    setSpotifyClientIdError(null);
+    setSpotifyClientIdSaved(false);
     try {
-      const saved = await enqueueSave(async () => { await invoke("set_view_mode", { mode: nextMode }); });
-      if (saved) {
-        setMode(nextMode);
-        if (nextMode === "phone") {
-          dragRef.current = null;
-          dispatch({ type: "resetPositions" });
-        }
-      }
+      const saved = await invoke<string>("spotify_save_client_id", { clientId });
+      if (saved !== savedSpotifyClientId) closeSpotifyApp();
+      setSpotifyClientIdDraft(saved);
+      setSavedSpotifyClientId(saved);
+      const snapshot = await invoke<LocalAppStoreSnapshot>("load_local_apps");
+      setAppStore(snapshot);
+      setAppStoreError(null);
+      setSpotifyClientIdSaved(true);
+    } catch (error) {
+      setSpotifyClientIdError(String(error));
     } finally {
-      setModeChanging(false);
+      setSpotifyClientIdSaving(false);
     }
   };
 
@@ -596,7 +612,7 @@ function AppContent() {
   }
 
   return (
-    <main className={`phone-shell mode-${mode}${settings.accentOn ? " accent-on" : " accent-off"}`}>
+    <main className={`phone-shell mode-${mode}${settings.accentOn ? " accent-on" : " accent-off"}`} onPointerDown={startMainWindowDrag}>
       <div className="device-hardware" aria-hidden="true"><span className="hardware-camera"/><span className="hardware-speaker"/><span className="hardware-home"/></div>
       {mode === "tablet" && <nav className="side-panel" aria-label={t(language, "nav.main")}>
         <div className="side-brand"><img src={legionMark} alt="LΣ" title="LΣGIΦN ΦS"/></div>
@@ -714,13 +730,10 @@ function AppContent() {
           <div className="window-content">
             {shownWindow.appId === "settings" && <div className="settings-view"><div className="window-section-heading"><span className="section-kicker">{t(language, "settings.kicker")}</span><h2>{t(language, "settings.title")}</h2><p>{t(language, "settings.subtitle")}</p></div>
               <div className="language-settings"><div><label className="device-mode-label" htmlFor="ui-language">{t(language, "settings.language.label")}</label><span>{t(language, "settings.language.description")}</span></div><select id="ui-language" value={language} onChange={(event) => changeSetting({ language: event.currentTarget.value as Language })}><option value="en">{t(language, "settings.language.en")}</option><option value="de">{t(language, "settings.language.de")}</option><option value="nl">{t(language, "settings.language.nl")}</option></select></div>
-              <div className="device-mode-settings"><span className="device-mode-label">{t(language, "settings.device.label")}</span><div className="device-mode-options" role="group" aria-label={t(language, "settings.device.label")}>
-                <button className={`device-mode-option${mode === "phone" ? " selected" : ""}`} onClick={() => void changeMode("phone")} aria-pressed={mode === "phone"} disabled={modeChanging}><span className="device-icon device-phone"/><span><strong>{t(language, "settings.phone")}</strong><small>{t(language, "settings.phone.orientation")}</small></span></button>
-                <button className={`device-mode-option${mode === "tablet" ? " selected" : ""}`} onClick={() => void changeMode("tablet")} aria-pressed={mode === "tablet"} disabled={modeChanging}><span className="device-icon device-tablet"/><span><strong>{t(language, "settings.tablet")}</strong><small>{t(language, "settings.tablet.orientation")}</small></span></button>
-              </div>{modeChanging && <span className="device-mode-status" role="status">{t(language, "settings.modeChanging")}</span>}</div>
               <div className="settings-group"><div className="settings-row"><div className="settings-row-icon settings-cyan"><Icon name="moon" size={17}/></div><div className="settings-row-copy"><strong>{t(language, "settings.quiet")}</strong><span>{t(language, "settings.example")}</span></div><Toggle checked={settings.quietMode} onChange={(checked) => changeSetting({ quietMode: checked })} label={t(language, "settings.quiet")}/></div>
                 <div className="settings-row"><div className="settings-row-icon settings-violet"><Icon name="sun" size={17}/></div><div className="settings-row-copy"><strong>{t(language, "settings.accent")}</strong><span>{t(language, "settings.accentDescription")}</span></div><Toggle checked={settings.accentOn} onChange={(checked) => changeSetting({ accentOn: checked })} label={t(language, "settings.accent")}/></div></div>
               <section className="roadwatch-settings" aria-labelledby="roadwatch-settings-title"><div><span className="section-kicker">{t(language, "settings.roadwatch")}</span><h3 id="roadwatch-settings-title">{t(language, "settings.roadwatchTitle")}</h3><p>{t(language, "settings.roadwatchDescription")}</p></div><label htmlFor="roadwatch-truckersmp-id">{t(language, "settings.yourTruckersmpId")}</label><input id="roadwatch-truckersmp-id" type="text" inputMode="numeric" autoComplete="off" maxLength={20} value={truckersmpIdDraft} onChange={(event) => setTruckersmpIdDraft(event.currentTarget.value.replace(/\D/g, "").slice(0, 20))} placeholder="12345678"/><label htmlFor="roadwatch-vtc-id">{t(language, "settings.vtcId")}</label><input id="roadwatch-vtc-id" type="text" inputMode="numeric" autoComplete="off" maxLength={20} value={vtcIdDraft} onChange={(event) => setVtcIdDraft(event.currentTarget.value.replace(/\D/g, "").slice(0, 20))} placeholder="12345"/><button className="roadwatch-settings-save" type="button" onClick={saveRoadWatchIds} disabled={!canSave || persistence === "saving" || (truckersmpIdDraft === savedRoadWatchIds.truckersmpId && vtcIdDraft === savedRoadWatchIds.vtcId)}>{persistence === "saving" && (truckersmpIdDraft !== savedRoadWatchIds.truckersmpId || vtcIdDraft !== savedRoadWatchIds.vtcId) ? t(language, "settings.saving") : persistence === "error" ? t(language, "settings.retrySave") : truckersmpIdDraft === savedRoadWatchIds.truckersmpId && vtcIdDraft === savedRoadWatchIds.vtcId ? t(language, "settings.saved") : t(language, "settings.saveIds")}</button></section>
+              <section className="roadwatch-settings" aria-labelledby="spotify-settings-title"><div><span className="section-kicker">SPOTIFY</span><h3 id="spotify-settings-title">{t(language, "settings.spotifyTitle")}</h3><p>{t(language, "settings.spotifyDescription")}</p></div><label htmlFor="spotify-client-id">{t(language, "settings.spotifyClientId")}</label><input id="spotify-client-id" type="text" inputMode="text" autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={32} value={spotifyClientIdDraft} onChange={(event) => { setSpotifyClientIdDraft(event.currentTarget.value.replace(/[^a-z0-9]/gi, "").slice(0, 32)); setSpotifyClientIdError(null); setSpotifyClientIdSaved(false); }} placeholder="32-character Client ID" aria-describedby="spotify-client-id-help"/><p id="spotify-client-id-help">{t(language, "settings.spotifyHelp")}</p><button className="roadwatch-settings-save" type="button" onClick={() => void saveSpotifyClientId()} disabled={!isTauri() || spotifyClientIdSaving || spotifyClientIdDraft.trim() === savedSpotifyClientId || (spotifyClientIdDraft.trim().length !== 32 && spotifyClientIdDraft.trim().length !== 0)}>{spotifyClientIdSaving ? t(language, "settings.saving") : t(language, "settings.spotifySave")}</button>{spotifyClientIdSaved && <p className="hotkey-saved" role="status">{t(language, "settings.spotifySaved")}</p>}{spotifyClientIdError && <p className="hotkey-error" role="alert">{spotifyClientIdError}</p>}</section>
               <section className="updater-settings" aria-labelledby="updater-heading">
                 <div className="updater-heading"><div><span className="section-kicker">LEGIONOS</span><h3 id="updater-heading">{t(language, "settings.updates")}</h3></div><span className="updater-lock" title={t(language, "settings.signed")}><Icon name="check" size={15}/> {t(language, "settings.signed")}</span></div>
                 <p className="updater-description">{t(language, "settings.updaterDescription")}</p>
